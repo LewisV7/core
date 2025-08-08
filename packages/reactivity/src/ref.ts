@@ -24,13 +24,16 @@ declare const RefSymbol: unique symbol
 export declare const RawSymbol: unique symbol
 
 export interface Ref<T = any, S = T> {
+  // 获取值
   get value(): T
+  // 设置值
   set value(_: S)
   /**
    * Type differentiator only.
    * We need this to be in public d.ts but don't want it to show up in IDE
    * autocomplete, so we use a private Symbol instead.
    */
+  // ref标识
   [RefSymbol]: true
 }
 
@@ -41,6 +44,7 @@ export interface Ref<T = any, S = T> {
  * @see {@link https://vuejs.org/api/reactivity-utilities.html#isref}
  */
 export function isRef<T>(r: Ref<T> | unknown): r is Ref<T>
+// 是否为ref对象 看他是否有这个标识
 export function isRef(r: any): r is Ref {
   return r ? r[ReactiveFlags.IS_REF] === true : false
 }
@@ -56,7 +60,9 @@ export function ref<T>(
   value: T,
 ): [T] extends [Ref] ? IfAny<T, Ref<T>, T> : Ref<UnwrapRef<T>, UnwrapRef<T> | T>
 export function ref<T = any>(): Ref<T | undefined>
+// 创建ref对象
 export function ref(value?: unknown) {
+  // 创建ref对象
   return createRef(value, false)
 }
 
@@ -90,12 +96,14 @@ export function shallowRef<T>(
     ? IfAny<T, ShallowRef<T>, T>
     : ShallowRef<T>
   : ShallowRef<T>
+// 创建浅层ref对象 
 export function shallowRef<T = any>(): ShallowRef<T | undefined>
 export function shallowRef(value?: unknown) {
   return createRef(value, true)
 }
-
+// 创建ref对象 
 function createRef(rawValue: unknown, shallow: boolean) {
+  // 如果是ref对象 直接返回这个对象 否则就new RefImpl对象 
   if (isRef(rawValue)) {
     return rawValue
   }
@@ -105,23 +113,30 @@ function createRef(rawValue: unknown, shallow: boolean) {
 /**
  * @internal
  */
+// ref对象
 class RefImpl<T = any> {
   _value: T
+  // 原始值
   private _rawValue: T
-
+  // 依赖Dep
   dep: Dep = new Dep()
-
+  // 是否为ref
   public readonly [ReactiveFlags.IS_REF] = true
+  // 是否为浅层
   public readonly [ReactiveFlags.IS_SHALLOW]: boolean = false
-
+  // 构造函数 
   constructor(value: T, isShallow: boolean) {
+    // 如果为浅层对象则直接返回值 否则就返回原始值
     this._rawValue = isShallow ? value : toRaw(value)
+    // 如果为浅层则直接返回对象 否则就reactive响应式
     this._value = isShallow ? value : toReactive(value)
     this[ReactiveFlags.IS_SHALLOW] = isShallow
   }
 
   get value() {
+    // 如果为开发环境 
     if (__DEV__) {
+      // 获取时触发track函数
       this.dep.track({
         target: this,
         type: TrackOpTypes.GET,
@@ -132,17 +147,23 @@ class RefImpl<T = any> {
     }
     return this._value
   }
-
+  // 设置值
   set value(newValue) {
     const oldValue = this._rawValue
     const useDirectValue =
+    // 是否为浅层对象 或者为只读对象
       this[ReactiveFlags.IS_SHALLOW] ||
       isShallow(newValue) ||
       isReadonly(newValue)
+      // 如果为浅层对象或只读对象直接返回新值 否则就调用toRaw函数 获取被代理的原始对象
     newValue = useDirectValue ? newValue : toRaw(newValue)
+    // 如果新的值和旧的值发生变化了
     if (hasChanged(newValue, oldValue)) {
+      // 将新增赋值给原始对象
       this._rawValue = newValue
+      // 判断是否只读和浅层根据其结果返回响应式还是原值
       this._value = useDirectValue ? newValue : toReactive(newValue)
+      // 调用trigger函数
       if (__DEV__) {
         this.dep.trigger({
           target: this,
@@ -183,10 +204,13 @@ class RefImpl<T = any> {
  * @param ref - The ref whose tied effects shall be executed.
  * @see {@link https://vuejs.org/api/reactivity-advanced.html#triggerref}
  */
+// triggerRef 
 export function triggerRef(ref: Ref): void {
   // ref may be an instance of ObjectRefImpl
+  // 如果ref有相应的依赖对象
   if ((ref as unknown as RefImpl).dep) {
     if (__DEV__) {
+      // 进行调用trigger函数
       ;(ref as unknown as RefImpl).dep.trigger({
         target: ref,
         type: TriggerOpTypes.SET,
@@ -223,6 +247,7 @@ export type MaybeRefOrGetter<T = any> = MaybeRef<T> | ComputedRef<T> | (() => T)
  * @param ref - Ref or plain value to be converted into the plain value.
  * @see {@link https://vuejs.org/api/reactivity-utilities.html#unref}
  */
+// 将.value结构出来
 export function unref<T>(ref: MaybeRef<T> | ComputedRef<T>): T {
   return isRef(ref) ? ref.value : ref
 }
@@ -243,16 +268,21 @@ export function unref<T>(ref: MaybeRef<T> | ComputedRef<T>): T {
  * @param source - A getter, an existing ref, or a non-function value.
  * @see {@link https://vuejs.org/api/reactivity-utilities.html#tovalue}
  */
+//如果为function就调用source函数 否则就调用unref获取.value的值
 export function toValue<T>(source: MaybeRefOrGetter<T>): T {
   return isFunction(source) ? source() : unref(source)
 }
-
+// 浅层
 const shallowUnwrapHandlers: ProxyHandler<any> = {
+  // 获取值 调用
   get: (target, key, receiver) =>
+    // 如果key为raw 则直接返回原值 否则就使用Reflect返回原本的值
     key === ReactiveFlags.RAW
       ? target
       : unref(Reflect.get(target, key, receiver)),
+  // 设置值 
   set: (target, key, value, receiver) => {
+    // 旧值 如果旧的值为ref 就设置oldValue
     const oldValue = target[key]
     if (isRef(oldValue) && !isRef(value)) {
       oldValue.value = value
@@ -271,14 +301,16 @@ const shallowUnwrapHandlers: ProxyHandler<any> = {
  * @param objectWithRefs - Either an already-reactive object or a simple object
  * that contains refs.
  */
+// 代理对象
 export function proxyRefs<T extends object>(
   objectWithRefs: T,
 ): ShallowUnwrapRef<T> {
+  // 判断是否为响应式对象 如果是直接返回 不是返回浅层的
   return isReactive(objectWithRefs)
     ? objectWithRefs
     : new Proxy(objectWithRefs, shallowUnwrapHandlers)
 }
-
+// 自定义ref
 export type CustomRefFactory<T> = (
   track: () => void,
   trigger: () => void,
@@ -340,13 +372,15 @@ export function toRefs<T extends object>(object: T): ToRefs<T> {
   if (__DEV__ && !isProxy(object)) {
     warn(`toRefs() expects a reactive object but received a plain one.`)
   }
+  // 如果为数组 则返回一个数组对象 否则就返回一个普通对象
   const ret: any = isArray(object) ? new Array(object.length) : {}
+  // 然后循环这个object对象 对每一个进行ref
   for (const key in object) {
     ret[key] = propertyToRef(object, key)
   }
   return ret
 }
-
+// 对象ref实现
 class ObjectRefImpl<T extends object, K extends keyof T> {
   public readonly [ReactiveFlags.IS_REF] = true
   public _value: T[K] = undefined!
@@ -370,7 +404,7 @@ class ObjectRefImpl<T extends object, K extends keyof T> {
     return getDepFromReactive(toRaw(this._object), this._key)
   }
 }
-
+  // 获取的ref类
 class GetterRefImpl<T> {
   public readonly [ReactiveFlags.IS_REF] = true
   public readonly [ReactiveFlags.IS_READONLY] = true
@@ -458,7 +492,7 @@ export function toRef(
     return ref(source)
   }
 }
-
+// 如果为ref对象
 function propertyToRef(
   source: Record<string, any>,
   key: string,
