@@ -1,3 +1,7 @@
+/**
+ * Vue 响应式系统基础处理器
+ * 定义了响应式对象的代理处理逻辑，包括 get、set、deleteProperty 等操作
+ */
 import {
   type Target,
   isReadonly,
@@ -25,8 +29,16 @@ import {
 import { isRef } from './ref'
 import { warn } from './warning'
 
+/**
+ * 不可追踪的键集合
+ * 这些键在响应式系统中不会触发依赖追踪
+ */
 const isNonTrackableKeys = /*@__PURE__*/ makeMap(`__proto__,__v_isRef,__isVue`)
 
+/**
+ * 内置 Symbol 集合
+ * 用于过滤原生 Symbol 属性，避免对其进行响应式处理
+ */
 const builtInSymbols = new Set(
   /*@__PURE__*/
   Object.getOwnPropertyNames(Symbol)
@@ -38,20 +50,44 @@ const builtInSymbols = new Set(
     .filter(isSymbol),
 )
 
+/**
+ * 重写的 hasOwnProperty 方法
+ * 用于在访问对象属性是否存在时触发依赖追踪
+ * @this 被访问的对象
+ * @param key - 要检查的属性键
+ * @returns 属性是否存在
+ */
 function hasOwnProperty(this: object, key: unknown) {
-  // #10455 hasOwnProperty may be called with non-string values
+  // #10455 hasOwnProperty 可能被非字符串值调用
+  // 转换为字符串以避免错误
   if (!isSymbol(key)) key = String(key)
   const obj = toRaw(this)
   track(obj, TrackOpTypes.HAS, key)
   return obj.hasOwnProperty(key as string)
 }
 
+/**
+ * 基础响应式处理器类
+ * 实现了 ProxyHandler 接口，定义了响应式对象的基本操作
+ */
 class BaseReactiveHandler implements ProxyHandler<Target> {
+  /**
+   * 构造函数
+   * @param _isReadonly - 是否为只读响应式对象
+   * @param _isShallow - 是否为浅响应式对象
+   */
   constructor(
     protected readonly _isReadonly = false,
     protected readonly _isShallow = false,
   ) {}
 
+  /**
+   * 获取属性值的拦截器
+   * @param target - 目标对象
+   * @param key - 属性键
+   * @param receiver - 代理对象
+   * @returns 属性值
+   */
   get(target: Target, key: string | symbol, receiver: object): any {
     if (key === ReactiveFlags.SKIP) return target[ReactiveFlags.SKIP]
 
@@ -133,11 +169,23 @@ class BaseReactiveHandler implements ProxyHandler<Target> {
   }
 }
 
+/**
+ * 可变响应式处理器类
+ * 继承自 BaseReactiveHandler，用于处理可变响应式对象
+ */
 class MutableReactiveHandler extends BaseReactiveHandler {
   constructor(isShallow = false) {
     super(false, isShallow)
   }
 
+  /**
+   * 设置属性值的拦截器
+   * @param target - 目标对象
+   * @param key - 属性键
+   * @param value - 新的属性值
+   * @param receiver - 代理对象
+   * @returns 是否设置成功
+   */
   set(
     target: Record<string | symbol, unknown>,
     key: string | symbol,
@@ -184,6 +232,12 @@ class MutableReactiveHandler extends BaseReactiveHandler {
     return result
   }
 
+  /**
+   * 删除属性的拦截器
+   * @param target - 目标对象
+   * @param key - 要删除的属性键
+   * @returns 是否删除成功
+   */
   deleteProperty(
     target: Record<string | symbol, unknown>,
     key: string | symbol,
@@ -197,6 +251,12 @@ class MutableReactiveHandler extends BaseReactiveHandler {
     return result
   }
 
+  /**
+   * 检查属性是否存在的拦截器
+   * @param target - 目标对象
+   * @param key - 要检查的属性键
+   * @returns 属性是否存在
+   */
   has(target: Record<string | symbol, unknown>, key: string | symbol): boolean {
     const result = Reflect.has(target, key)
     if (!isSymbol(key) || !builtInSymbols.has(key)) {

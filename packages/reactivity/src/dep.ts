@@ -1,3 +1,7 @@
+/**
+ * Vue 响应式系统依赖追踪实现
+ * 该文件定义了依赖追踪的核心类和函数，包括 Dep、Link 以及 track/trigger 机制
+ */
 import { extend, isArray, isIntegerKey, isMap, isSymbol } from '@vue/shared'
 import type { ComputedRefImpl } from './computed'
 import { type TrackOpTypes, TriggerOpTypes } from './constants'
@@ -12,41 +16,43 @@ import {
 } from './effect'
 
 /**
- * Incremented every time a reactive change happens
- * This is used to give computed a fast path to avoid re-compute when nothing
- * has changed.
+ * 全局版本号，每次响应式变化时递增
+ * 用于计算属性的快速路径，当没有变化时避免重新计算
  */
 export let globalVersion = 0
 
 /**
- * Represents a link between a source (Dep) and a subscriber (Effect or Computed).
- * Deps and subs have a many-to-many relationship - each link between a
- * dep and a sub is represented by a Link instance.
+ * 表示源（Dep）和订阅者（Effect 或 Computed）之间的链接
+ * Dep 和订阅者之间是多对多关系 - 每个 Dep 和订阅者之间的链接由一个 Link 实例表示
  *
- * A Link is also a node in two doubly-linked lists - one for the associated
- * sub to track all its deps, and one for the associated dep to track all its
- * subs.
+ * Link 同时是两个双向链表中的节点 - 一个用于关联的订阅者跟踪其所有依赖，
+ * 另一个用于关联的依赖跟踪其所有订阅者
  *
  * @internal
  */
 export class Link {
   /**
-   * - Before each effect run, all previous dep links' version are reset to -1
-   * - During the run, a link's version is synced with the source dep on access
-   * - After the run, links with version -1 (that were never used) are cleaned
-   *   up
+   * 版本号，用于跟踪依赖是否被使用
+   * - 在每个 effect 运行前，所有先前的依赖链接版本都重置为 -1
+   * - 运行期间，链接的版本在访问时与源依赖同步
+   * - 运行后，版本为 -1 的链接（从未使用过）将被清理
    */
   version: number
 
   /**
-   * Pointers for doubly-linked lists
+   * 双向链表指针
    */
-  nextDep?: Link
-  prevDep?: Link
-  nextSub?: Link
-  prevSub?: Link
-  prevActiveLink?: Link
+  nextDep?: Link  // 指向下一个依赖链接
+  prevDep?: Link  // 指向前一个依赖链接
+  nextSub?: Link  // 指向下一个订阅者链接
+  prevSub?: Link  // 指向前一个订阅者链接
+  prevActiveLink?: Link  // 指向前一个活动链接
 
+  /**
+   * 构造函数
+   * @param sub - 订阅者（Effect 或 Computed）
+   * @param dep - 依赖对象
+   */
   constructor(
     public sub: Subscriber,
     public dep: Dep,
@@ -62,49 +68,60 @@ export class Link {
 }
 
 /**
+ * 依赖类，管理对某个响应式属性的所有订阅者
  * @internal
  */
 export class Dep {
-  version = 0
+  version = 0  // 当前依赖的版本号
   /**
-   * Link between this dep and the current active effect
+   * 当前依赖与当前活动 effect 之间的链接
    */
   activeLink?: Link = undefined
 
   /**
-   * Doubly linked list representing the subscribing effects (tail)
+   * 表示订阅效果的双向链表（尾部）
    */
   subs?: Link = undefined
 
   /**
-   * Doubly linked list representing the subscribing effects (head)
-   * DEV only, for invoking onTrigger hooks in correct order
+   * 表示订阅效果的双向链表（头部）
+   * 仅开发环境使用，用于按正确顺序调用 onTrigger 钩子
    */
   subsHead?: Link
 
   /**
-   * For object property deps cleanup
+   * 用于对象属性依赖清理
    */
-  map?: KeyToDepMap = undefined
-  key?: unknown = undefined
+  map?: KeyToDepMap = undefined  // 依赖映射
+  key?: unknown = undefined  // 依赖的键
 
   /**
-   * Subscriber counter
+   * 订阅者计数器
    */
   sc: number = 0
 
   /**
+   * 内部标志，用于跳过响应式处理
    * @internal
    */
   readonly __v_skip = true
   // TODO isolatedDeclarations ReactiveFlags.SKIP
 
+  /**
+   * 构造函数
+   * @param computed - 可选的计算属性引用
+   */
   constructor(public computed?: ComputedRefImpl | undefined) {
     if (__DEV__) {
       this.subsHead = undefined
     }
   }
 
+  /**
+   * 跟踪当前活动 effect 对依赖的访问
+   * @param debugInfo - 可选的调试信息
+   * @returns 新创建或更新的链接对象
+   */
   track(debugInfo?: DebuggerEventExtraInfo): Link | undefined {
     if (!activeSub || !shouldTrack || activeSub === this.computed) {
       return
@@ -164,12 +181,20 @@ export class Dep {
     return link
   }
 
+  /**
+   * 触发依赖更新
+   * @param debugInfo - 可选的调试信息
+   */
   trigger(debugInfo?: DebuggerEventExtraInfo): void {
     this.version++
     globalVersion++
     this.notify(debugInfo)
   }
 
+  /**
+   * 通知所有订阅者
+   * @param debugInfo - 可选的调试信息
+   */
   notify(debugInfo?: DebuggerEventExtraInfo): void {
     startBatch()
     try {
@@ -204,6 +229,10 @@ export class Dep {
   }
 }
 
+/**
+ * 添加订阅链接到依赖
+ * @param link - 要添加的链接对象
+ */
 function addSub(link: Link) {
   link.dep.sc++
   if (link.sub.flags & EffectFlags.TRACKING) {
@@ -231,33 +260,46 @@ function addSub(link: Link) {
   }
 }
 
-// The main WeakMap that stores {target -> key -> dep} connections.
-// Conceptually, it's easier to think of a dependency as a Dep class
-// which maintains a Set of subscribers, but we simply store them as
-// raw Maps to reduce memory overhead.
+/**
+ * 存储 {target -> key -> dep} 连接的主 WeakMap
+ * 概念上，可以将依赖视为维护订阅者集合的 Dep 类，
+ * 但为了减少内存开销，我们简单地将它们存储为原始 Maps
+ */
 type KeyToDepMap = Map<any, Dep>
 
+/**
+ * 目标对象到依赖映射的 WeakMap
+ */
 export const targetMap: WeakMap<object, KeyToDepMap> = new WeakMap()
 
+/**
+ * 对象迭代的唯一符号键
+ */
 export const ITERATE_KEY: unique symbol = Symbol(
   __DEV__ ? 'Object iterate' : '',
 )
+/**
+ * Map 键迭代的唯一符号键
+ */
 export const MAP_KEY_ITERATE_KEY: unique symbol = Symbol(
   __DEV__ ? 'Map keys iterate' : '',
 )
+/**
+ * 数组迭代的唯一符号键
+ */
 export const ARRAY_ITERATE_KEY: unique symbol = Symbol(
   __DEV__ ? 'Array iterate' : '',
 )
 
 /**
- * Tracks access to a reactive property.
+ * 跟踪对响应式属性的访问
  *
- * This will check which effect is running at the moment and record it as dep
- * which records all effects that depend on the reactive property.
+ * 这将检查当前运行的 effect，并将其记录为依赖，
+ * 该依赖记录了所有依赖于响应式属性的 effect
  *
- * @param target - Object holding the reactive property.
- * @param type - Defines the type of access to the reactive property.
- * @param key - Identifier of the reactive property to track.
+ * @param target - 包含响应式属性的对象
+ * @param type - 定义对响应式属性的访问类型
+ * @param key - 要跟踪的响应式属性的标识符
  */
 export function track(target: object, type: TrackOpTypes, key: unknown): void {
   if (shouldTrack && activeSub) {
@@ -284,12 +326,14 @@ export function track(target: object, type: TrackOpTypes, key: unknown): void {
 }
 
 /**
- * Finds all deps associated with the target (or a specific property) and
- * triggers the effects stored within.
+ * 查找与目标（或特定属性）关联的所有依赖并触发其中存储的 effect
  *
- * @param target - The reactive object.
- * @param type - Defines the type of the operation that needs to trigger effects.
- * @param key - Can be used to target a specific reactive property in the target object.
+ * @param target - 响应式对象
+ * @param type - 定义需要触发 effect 的操作类型
+ * @param key - 可用于定位目标对象中的特定响应式属性
+ * @param newValue - 新值
+ * @param oldValue - 旧值
+ * @param oldTarget - 旧的目标集合（用于 Map 和 Set）
  */
 export function trigger(
   target: object,
@@ -388,6 +432,12 @@ export function trigger(
   endBatch()
 }
 
+/**
+ * 从响应式对象获取依赖
+ * @param object - 响应式对象
+ * @param key - 属性键
+ * @returns 依赖对象或 undefined
+ */
 export function getDepFromReactive(
   object: any,
   key: string | number | symbol,

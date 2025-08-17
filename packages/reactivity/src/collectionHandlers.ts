@@ -1,3 +1,7 @@
+/**
+ * Vue 响应式系统集合处理器
+ * 处理 Map、Set、WeakMap 和 WeakSet 等集合类型的响应式代理逻辑
+ */
 import {
   type Target,
   isReadonly,
@@ -18,18 +22,56 @@ import {
 } from '@vue/shared'
 import { warn } from './warning'
 
+/**
+ * 集合类型的联合类型
+ * 包括可迭代集合和弱引用集合
+ */
 type CollectionTypes = IterableCollections | WeakCollections
 
+/**
+ * 可迭代集合类型
+ * 包括 Map 和 Set
+ */
 type IterableCollections = (Map<any, any> | Set<any>) & Target
+/**
+ * 弱引用集合类型
+ * 包括 WeakMap 和 WeakSet
+ */
 type WeakCollections = (WeakMap<any, any> | WeakSet<any>) & Target
+/**
+ * Map 类型的联合类型
+ * 包括 Map 和 WeakMap
+ */
 type MapTypes = (Map<any, any> | WeakMap<any, any>) & Target
+/**
+ * Set 类型的联合类型
+ * 包括 Set 和 WeakSet
+ */
 type SetTypes = (Set<any> | WeakSet<any>) & Target
 
+/**
+ * 浅包装函数
+ * 原样返回值，不进行响应式包装
+ * @param value - 要包装的值
+ * @returns 原始值
+ */
 const toShallow = <T extends unknown>(value: T): T => value
 
+/**
+ * 获取原型对象
+ * @param v - 集合对象
+ * @returns 原型对象
+ */
 const getProto = <T extends CollectionTypes>(v: T): any =>
   Reflect.getPrototypeOf(v)
 
+/**
+ * 创建可迭代方法的包装函数
+ * @param method - 方法名
+ * @param isReadonly - 是否为只读
+ * @param isShallow - 是否为浅响应式
+ * @returns 包装后的方法
+ */
 function createIterableMethod(
   method: string | symbol,
   isReadonly: boolean,
@@ -74,6 +116,11 @@ function createIterableMethod(
   }
 }
 
+/**
+ * 创建只读方法
+ * @param type - 操作类型
+ * @returns 只读方法
+ */
 function createReadonlyMethod(type: TriggerOpTypes): Function {
   return function (this: CollectionTypes, ...args: unknown[]) {
     if (__DEV__) {
@@ -91,14 +138,28 @@ function createReadonlyMethod(type: TriggerOpTypes): Function {
   }
 }
 
+/**
+ * 工具方法集合类型
+ */
 type Instrumentations = Record<string | symbol, Function | number>
 
+/**
+ * 创建工具方法集合
+ * @param readonly - 是否为只读
+ * @param shallow - 是否为浅响应式
+ * @returns 工具方法集合
+ */
 function createInstrumentations(
   readonly: boolean,
   shallow: boolean,
 ): Instrumentations {
   const instrumentations: Instrumentations = {
-    get(this: MapTypes, key: unknown) {
+    /**
+ * Map 获取方法的响应式包装
+ * @param key - 键
+ * @returns 值（经过响应式包装）
+ */
+get(this: MapTypes, key: unknown) {
       // #1772: readonly(reactive(Map)) should return readonly + reactive version
       // of the value
       const target = this[ReactiveFlags.RAW]
@@ -122,12 +183,21 @@ function createInstrumentations(
         target.get(key)
       }
     },
-    get size() {
+    /**
+ * 获取集合大小的响应式包装
+ * @returns 集合大小
+ */
+get size() {
       const target = (this as unknown as IterableCollections)[ReactiveFlags.RAW]
       !readonly && track(toRaw(target), TrackOpTypes.ITERATE, ITERATE_KEY)
       return Reflect.get(target, 'size', target)
     },
-    has(this: CollectionTypes, key: unknown): boolean {
+    /**
+ * 检查集合是否包含指定键的响应式包装
+ * @param key - 键
+ * @returns 是否包含
+ */
+has(this: CollectionTypes, key: unknown): boolean {
       const target = this[ReactiveFlags.RAW]
       const rawTarget = toRaw(target)
       const rawKey = toRaw(key)
@@ -141,7 +211,12 @@ function createInstrumentations(
         ? target.has(key)
         : target.has(key) || target.has(rawKey)
     },
-    forEach(this: IterableCollections, callback: Function, thisArg?: unknown) {
+    /**
+ * 遍历集合的响应式包装
+ * @param callback - 回调函数
+ * @param thisArg - 回调函数的 this 上下文
+ */
+forEach(this: IterableCollections, callback: Function, thisArg?: unknown) {
       const observed = this
       const target = observed[ReactiveFlags.RAW]
       const rawTarget = toRaw(target)
@@ -166,7 +241,12 @@ function createInstrumentations(
           clear: createReadonlyMethod(TriggerOpTypes.CLEAR),
         }
       : {
-          add(this: SetTypes, value: unknown) {
+          /**
+ * Set 添加元素的响应式包装
+ * @param value - 要添加的值
+ * @returns Set 实例
+ */
+add(this: SetTypes, value: unknown) {
             if (!shallow && !isShallow(value) && !isReadonly(value)) {
               value = toRaw(value)
             }
@@ -179,7 +259,13 @@ function createInstrumentations(
             }
             return this
           },
-          set(this: MapTypes, key: unknown, value: unknown) {
+          /**
+ * Map 设置键值对的响应式包装
+ * @param key - 键
+ * @param value - 值
+ * @returns Map 实例
+ */
+set(this: MapTypes, key: unknown, value: unknown) {
             if (!shallow && !isShallow(value) && !isReadonly(value)) {
               value = toRaw(value)
             }
@@ -203,7 +289,12 @@ function createInstrumentations(
             }
             return this
           },
-          delete(this: CollectionTypes, key: unknown) {
+          /**
+ * 删除元素的响应式包装
+ * @param key - 键
+ * @returns 是否删除成功
+ */
+delete(this: CollectionTypes, key: unknown) {
             const target = toRaw(this)
             const { has, get } = getProto(target)
             let hadKey = has.call(target, key)
@@ -222,7 +313,10 @@ function createInstrumentations(
             }
             return result
           },
-          clear(this: IterableCollections) {
+          /**
+ * 清空集合的响应式包装
+ */
+clear(this: IterableCollections) {
             const target = toRaw(this)
             const hadItems = target.size !== 0
             const oldTarget = __DEV__
@@ -260,6 +354,12 @@ function createInstrumentations(
   return instrumentations
 }
 
+/**
+ * 创建工具方法获取器
+ * @param isReadonly - 是否为只读
+ * @param shallow - 是否为浅响应式
+ * @returns 获取器函数
+ */
 function createInstrumentationGetter(isReadonly: boolean, shallow: boolean) {
   const instrumentations = createInstrumentations(isReadonly, shallow)
 
@@ -286,23 +386,46 @@ function createInstrumentationGetter(isReadonly: boolean, shallow: boolean) {
   }
 }
 
+/**
+ * 可变集合处理器
+ * 用于处理可变响应式集合的代理
+ */
 export const mutableCollectionHandlers: ProxyHandler<CollectionTypes> = {
   get: /*@__PURE__*/ createInstrumentationGetter(false, false),
 }
 
+/**
+ * 浅响应式集合处理器
+ * 用于处理浅响应式集合的代理
+ */
 export const shallowCollectionHandlers: ProxyHandler<CollectionTypes> = {
   get: /*@__PURE__*/ createInstrumentationGetter(false, true),
 }
 
+/**
+ * 只读集合处理器
+ * 用于处理只读响应式集合的代理
+ */
 export const readonlyCollectionHandlers: ProxyHandler<CollectionTypes> = {
   get: /*@__PURE__*/ createInstrumentationGetter(true, false),
 }
 
+/**
+ * 浅只读集合处理器
+ * 用于处理浅只读响应式集合的代理
+ */
 export const shallowReadonlyCollectionHandlers: ProxyHandler<CollectionTypes> =
   {
     get: /*@__PURE__*/ createInstrumentationGetter(true, true),
   }
 
+/**
+ * 检查标识键
+ * 确保集合中不会同时存在原始对象和响应式对象作为键
+ * @param target - 目标集合
+ * @param has - has 方法
+ * @param key - 键
+ */
 function checkIdentityKeys(
   target: CollectionTypes,
   has: (key: unknown) => boolean,

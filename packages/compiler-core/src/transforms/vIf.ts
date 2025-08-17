@@ -1,3 +1,7 @@
+// ***********************************************************************
+// * v-if 指令转换处理
+// * 负责处理组件中的 v-if、v-else 和 v-else-if 指令，将其转换为条件渲染代码
+// ***********************************************************************
 import {
   type NodeTransform,
   type TransformContext,
@@ -36,10 +40,11 @@ import { findDir, findProp, getMemoedVNodeCall, injectProp } from '../utils'
 import { PatchFlags } from '@vue/shared'
 
 export const transformIf: NodeTransform = createStructuralDirectiveTransform(
-  /^(if|else|else-if)$/,
-  (node, dir, context) => {
+  /^(if|else|else-if)$/, // 匹配 v-if, v-else, v-else-if 指令,
+  (node, dir, context) => { // node: 节点, dir: 指令, context: 转换上下文
     return processIf(node, dir, context, (ifNode, branch, isRoot) => {
-      // #1587: We need to dynamically increment the key based on the current
+      // #1587: 我们需要根据当前节点的兄弟节点动态增加 key 值
+// 因为链式的 v-if/else 分支在同一深度渲染
       // node's sibling nodes, since chained v-if/else branches are
       // rendered at the same depth
       const siblings = context.parent!.children
@@ -52,7 +57,7 @@ export const transformIf: NodeTransform = createStructuralDirectiveTransform(
         }
       }
 
-      // Exit callback. Complete the codegenNode when all children have been
+      // 退出回调。当所有子节点都已转换完成后，完成 codegenNode 的创建
       // transformed.
       return () => {
         if (isRoot) {
@@ -75,7 +80,15 @@ export const transformIf: NodeTransform = createStructuralDirectiveTransform(
   },
 )
 
-// target-agnostic transform used for both Client and SSR
+// 与目标无关的转换，同时用于客户端和 SSR
+/**
+ * 处理 v-if 指令的核心函数
+ * @param node 元素节点
+ * @param dir 指令节点
+ * @param context 转换上下文
+ * @param processCodegen 代码生成处理函数
+ * @returns 清理函数，在子节点处理完成后执行
+ */
 export function processIf(
   node: ElementNode,
   dir: DirectiveNode,
@@ -87,7 +100,8 @@ export function processIf(
   ) => (() => void) | undefined,
 ): (() => void) | undefined {
   if (
-    dir.name !== 'else' &&
+    // 如果不是 v-else 指令，且没有表达式或表达式为空
+        dir.name !== 'else' &&
     (!dir.exp || !(dir.exp as SimpleExpressionNode).content.trim())
   ) {
     const loc = dir.exp ? dir.exp.loc : node.loc
@@ -98,7 +112,7 @@ export function processIf(
   }
 
   if (!__BROWSER__ && context.prefixIdentifiers && dir.exp) {
-    // dir.exp can only be simple expression because vIf transform is applied
+    // dir.exp 只能是简单表达式，因为 vIf 转换在表达式转换之前应用
     // before expression transform.
     dir.exp = processExpression(dir.exp as SimpleExpressionNode, context)
   }
@@ -119,7 +133,7 @@ export function processIf(
       return processCodegen(ifNode, branch, true)
     }
   } else {
-    // locate the adjacent v-if
+    // 定位相邻的 v-if 指令
     const siblings = context.parent!.children
     const comments = []
     let i = siblings.indexOf(node)
@@ -187,12 +201,12 @@ export function processIf(
 
         sibling.branches.push(branch)
         const onExit = processCodegen && processCodegen(sibling, branch, false)
-        // since the branch was removed, it will not be traversed.
-        // make sure to traverse here.
+        // 由于分支已被移除，它不会被遍历
+        // 确保在这里遍历
         traverseNode(branch, context)
         // call on exit
         if (onExit) onExit()
-        // make sure to reset currentNode after traversal to indicate this
+        // 确保在遍历后重置 currentNode 以指示此节点已被移除
         // node has been removed.
         context.currentNode = null
       } else {
@@ -205,6 +219,12 @@ export function processIf(
   }
 }
 
+/**
+ * 创建 if 分支节点
+ * @param node 元素节点
+ * @param dir 指令节点
+ * @returns IfBranchNode 实例
+ */
 function createIfBranch(node: ElementNode, dir: DirectiveNode): IfBranchNode {
   const isTemplateIf = node.tagType === ElementTypes.TEMPLATE
   return {
@@ -217,6 +237,13 @@ function createIfBranch(node: ElementNode, dir: DirectiveNode): IfBranchNode {
   }
 }
 
+/**
+ * 为分支创建代码生成节点
+ * @param branch 分支节点
+ * @param keyIndex key 索引
+ * @param context 转换上下文
+ * @returns 条件表达式或代码生成节点
+ */
 function createCodegenNodeForBranch(
   branch: IfBranchNode,
   keyIndex: number,
@@ -226,7 +253,7 @@ function createCodegenNodeForBranch(
     return createConditionalExpression(
       branch.condition,
       createChildrenCodegenNode(branch, keyIndex, context),
-      // make sure to pass in asBlock: true so that the comment node call
+      // 确保传入 asBlock: true，以便注释节点调用关闭当前块
       // closes the current block.
       createCallExpression(context.helper(CREATE_COMMENT), [
         __DEV__ ? '"v-if"' : '""',
@@ -238,6 +265,13 @@ function createCodegenNodeForBranch(
   }
 }
 
+/**
+ * 为子节点创建代码生成节点
+ * @param branch 分支节点
+ * @param keyIndex key 索引
+ * @param context 转换上下文
+ * @returns 块代码生成节点或记忆表达式
+ */
 function createChildrenCodegenNode(
   branch: IfBranchNode,
   keyIndex: number,
@@ -259,20 +293,20 @@ function createChildrenCodegenNode(
     children.length !== 1 || firstChild.type !== NodeTypes.ELEMENT
   if (needFragmentWrapper) {
     if (children.length === 1 && firstChild.type === NodeTypes.FOR) {
-      // optimize away nested fragments when child is a ForNode
+      // 当子节点是 ForNode 时，优化掉嵌套的片段
       const vnodeCall = firstChild.codegenNode!
       injectProp(vnodeCall, keyProperty, context)
       return vnodeCall
     } else {
       let patchFlag = PatchFlags.STABLE_FRAGMENT
-      // check if the fragment actually contains a single valid child with
+      // 检查片段是否实际上只包含一个有效的子节点，其余都是注释
       // the rest being comments
       if (
         __DEV__ &&
         !branch.isTemplateIf &&
         children.filter(c => c.type !== NodeTypes.COMMENT).length === 1
       ) {
-        patchFlag |= PatchFlags.DEV_ROOT_FRAGMENT
+        patchFlag |= PatchFlags.DEV_ROOT_FRAGMENT // 添加开发环境根片段标记
       }
 
       return createVNodeCall(
@@ -294,16 +328,22 @@ function createChildrenCodegenNode(
       | BlockCodegenNode
       | MemoExpression
     const vnodeCall = getMemoedVNodeCall(ret)
-    // Change createVNode to createBlock.
+    // 将 createVNode 更改为 createBlock
     if (vnodeCall.type === NodeTypes.VNODE_CALL) {
       convertToBlock(vnodeCall, context)
     }
-    // inject branch key
+    // 注入分支 key
     injectProp(vnodeCall, keyProperty, context)
     return ret
   }
 }
 
+/**
+ * 检查两个 key 是否相同
+ * @param a 第一个 key
+ * @param b 第二个 key
+ * @returns 是否相同
+ */
 function isSameKey(
   a: AttributeNode | DirectiveNode | undefined,
   b: AttributeNode | DirectiveNode,
@@ -316,7 +356,7 @@ function isSameKey(
       return false
     }
   } else {
-    // directive
+    // 指令
     const exp = a.exp!
     const branchExp = (b as DirectiveNode).exp!
     if (exp.type !== branchExp.type) {
@@ -333,10 +373,15 @@ function isSameKey(
   return true
 }
 
+/**
+ * 获取父条件表达式
+ * @param node 条件表达式或缓存表达式
+ * @returns 父条件表达式
+ */
 function getParentCondition(
   node: IfConditionalExpression | CacheExpression,
 ): IfConditionalExpression {
-  while (true) {
+  while (true) { // 循环获取父条件表达式
     if (node.type === NodeTypes.JS_CONDITIONAL_EXPRESSION) {
       if (node.alternate.type === NodeTypes.JS_CONDITIONAL_EXPRESSION) {
         node = node.alternate

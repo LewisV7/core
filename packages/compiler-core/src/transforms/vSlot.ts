@@ -1,3 +1,7 @@
+// ***********************************************************************
+// * v-slot 指令转换处理
+// * 负责处理组件中的 v-slot 指令，构建插槽对象并处理作用域
+// ***********************************************************************
 import {
   type CallExpression,
   type ConditionalExpression,
@@ -36,13 +40,23 @@ import { SlotFlags, slotFlagsText } from '@vue/shared'
 
 const defaultFallback = createSimpleExpression(`undefined`, false)
 
-// A NodeTransform that:
+// 一个节点转换函数，用于：
+// 1. 跟踪作用域插槽的标识符，防止它们被 transformExpression 前缀化
+//    这仅在非浏览器构建中使用 { prefixIdentifiers: true } 时应用
+// 2. 跟踪 v-slot 的深度，以便知道插槽是否在另一个插槽内部
+//    注意：退出回调在同一节点上的 buildSlots() 之前执行，因此只有嵌套插槽才会看到正数
 // 1. Tracks scope identifiers for scoped slots so that they don't get prefixed
 //    by transformExpression. This is only applied in non-browser builds with
 //    { prefixIdentifiers: true }.
 // 2. Track v-slot depths so that we know a slot is inside another slot.
 //    Note the exit callback is executed before buildSlots() on the same node,
 //    so only nested slots see positive numbers.
+/**
+ * 跟踪插槽作用域的节点转换函数
+ * @param node 当前处理的 AST 节点
+ * @param context 转换上下文
+ * @returns 清理函数，在子节点处理完成后执行
+ */
 export const trackSlotScopes: NodeTransform = (node, context) => {
   if (
     node.type === NodeTypes.ELEMENT &&
@@ -68,8 +82,15 @@ export const trackSlotScopes: NodeTransform = (node, context) => {
   }
 }
 
-// A NodeTransform that tracks scope identifiers for scoped slots with v-for.
+// 一个节点转换函数，用于跟踪带有 v-for 的作用域插槽的标识符
+// 此转换仅在非浏览器构建中使用 { prefixIdentifiers: true } 时应用
 // This transform is only applied in non-browser builds with { prefixIdentifiers: true }
+/**
+ * 跟踪带 v-for 的插槽作用域的节点转换函数
+ * @param node 当前处理的 AST 节点
+ * @param context 转换上下文
+ * @returns 清理函数，在子节点处理完成后执行
+ */
 export const trackVForSlotScopes: NodeTransform = (node, context) => {
   let vFor
   if (
@@ -95,6 +116,14 @@ export const trackVForSlotScopes: NodeTransform = (node, context) => {
   }
 }
 
+/**
+ * 插槽函数构建器类型定义
+ * @param slotProps 插槽属性表达式
+ * @param vFor v-for 指令节点
+ * @param slotChildren 插槽子节点
+ * @param loc 源代码位置信息
+ * @returns 构建的函数表达式
+ */
 export type SlotFnBuilder = (
   slotProps: ExpressionNode | undefined,
   vFor: DirectiveNode | undefined,
@@ -102,6 +131,14 @@ export type SlotFnBuilder = (
   loc: SourceLocation,
 ) => FunctionExpression
 
+/**
+ * 客户端插槽函数构建器
+ * @param props 插槽属性
+ * @param _vForExp v-for 表达式（未使用）
+ * @param children 插槽子节点
+ * @param loc 源代码位置信息
+ * @returns 构建的函数表达式
+ */
 const buildClientSlotFn: SlotFnBuilder = (props, _vForExp, children, loc) =>
   createFunctionExpression(
     props,
@@ -111,8 +148,16 @@ const buildClientSlotFn: SlotFnBuilder = (props, _vForExp, children, loc) =>
     children.length ? children[0].loc : loc,
   )
 
-// Instead of being a DirectiveTransform, v-slot processing is called during
+// 与其他指令转换不同，v-slot 处理在 transformElement 期间被调用，
+// 用于为组件构建插槽对象
 // transformElement to build the slots object for a component.
+/**
+ * 构建组件的插槽对象
+ * @param node 元素节点
+ * @param context 转换上下文
+ * @param buildSlotFn 插槽函数构建器，默认为客户端构建器
+ * @returns 包含插槽表达式和动态插槽标志的对象
+ */
 export function buildSlots(
   node: ElementNode,
   context: TransformContext,
@@ -127,16 +172,19 @@ export function buildSlots(
   const slotsProperties: Property[] = []
   const dynamicSlots: (ConditionalExpression | CallExpression)[] = []
 
-  // If the slot is inside a v-for or another v-slot, force it to be dynamic
+  // 如果插槽在 v-for 或另一个 v-slot 内部，强制使其成为动态的
+  // 因为它可能使用了作用域变量
   // since it likely uses a scope variable.
   let hasDynamicSlots = context.scopes.vSlot > 0 || context.scopes.vFor > 0
-  // with `prefixIdentifiers: true`, this can be further optimized to make
+  // 使用 `prefixIdentifiers: true` 时，可以进一步优化，
+  // 仅当插槽实际使用作用域变量时才使其动态化
   // it dynamic only when the slot actually uses the scope variables.
   if (!__BROWSER__ && !context.ssr && context.prefixIdentifiers) {
     hasDynamicSlots = hasScopeRef(node, context.identifiers)
   }
 
-  // 1. Check for slot with slotProps on component itself.
+  // 1. 检查组件自身是否有带 slotProps 的插槽
+//    <Comp v-slot="{ prop }"/>
   //    <Comp v-slot="{ prop }"/>
   const onComponentSlot = findDir(node, 'slot', true)
   if (onComponentSlot) {
@@ -152,7 +200,8 @@ export function buildSlots(
     )
   }
 
-  // 2. Iterate through children and check for template slots
+  // 2. 遍历子节点并检查 template 插槽
+//    <template v-slot:foo="{ prop }">
   //    <template v-slot:foo="{ prop }">
   let hasTemplateSlots = false
   let hasNamedDefaultSlot = false
@@ -191,7 +240,7 @@ export function buildSlots(
       loc: dirLoc,
     } = slotDir
 
-    // check if name is dynamic.
+    // 检查名称是否是动态的
     let staticSlotName: string | undefined
     if (isStaticExp(slotName)) {
       staticSlotName = slotName ? slotName.content : `default`
@@ -202,7 +251,7 @@ export function buildSlots(
     const vFor = findDir(slotElement, 'for')
     const slotFunction = buildSlotFn(slotProps, vFor, slotChildren, slotLoc)
 
-    // check if this slot is conditional (v-if/v-for)
+    // 检查此插槽是否是条件性的 (v-if/v-for)
     let vIf: DirectiveNode | undefined
     let vElse: DirectiveNode | undefined
     if ((vIf = findDir(slotElement, 'if'))) {
@@ -217,7 +266,7 @@ export function buildSlots(
     } else if (
       (vElse = findDir(slotElement, /^else(-if)?$/, true /* allowEmpty */))
     ) {
-      // find adjacent v-if
+      // 查找相邻的 v-if
       let j = i
       let prev
       while (j--) {
@@ -228,7 +277,7 @@ export function buildSlots(
       }
       if (prev && isTemplateNode(prev) && findDir(prev, /^(else-)?if$/)) {
         __TEST__ && assert(dynamicSlots.length > 0)
-        // attach this slot to previous conditional
+        // 将此插槽附加到前一个条件
         let conditional = dynamicSlots[
           dynamicSlots.length - 1
         ] as ConditionalExpression
@@ -258,7 +307,8 @@ export function buildSlots(
       const parseResult = vFor.forParseResult
       if (parseResult) {
         finalizeForParseResult(parseResult, context)
-        // Render the dynamic slots as an array and add it to the createSlot()
+        // 将动态插槽渲染为数组并添加到 createSlot() 参数中
+  // 运行时知道如何适当地处理它
         // args. The runtime knows how to handle it appropriately.
         dynamicSlots.push(
           createCallExpression(context.helper(RENDER_LIST), [
@@ -279,7 +329,7 @@ export function buildSlots(
         )
       }
     } else {
-      // check duplicate static names
+      // 检查重复的静态名称
       if (staticSlotName) {
         if (seenSlotNames.has(staticSlotName)) {
           context.onError(
@@ -312,7 +362,7 @@ export function buildSlots(
     }
 
     if (!hasTemplateSlots) {
-      // implicit default slot (on component)
+      // 隐式默认插槽 (在组件上)
       slotsProperties.push(buildDefaultSlotProperty(undefined, children))
     } else if (
       implicitDefaultChildren.length &&
@@ -321,7 +371,7 @@ export function buildSlots(
       // implicitDefaultChildren. Ignore if all implicit children are whitespaces.
       implicitDefaultChildren.some(node => isNonWhitespaceContent(node))
     ) {
-      // implicit default slot (mixed with named slots)
+      // 隐式默认插槽 (与命名插槽混合)
       if (hasNamedDefaultSlot) {
         context.onError(
           createCompilerError(
@@ -346,7 +396,8 @@ export function buildSlots(
     slotsProperties.concat(
       createObjectProperty(
         `_`,
-        // 2 = compiled but dynamic = can skip normalization, but must run diff
+        // 2 = 已编译但动态 = 可以跳过标准化，但必须运行 diff
+  // 1 = 已编译且静态 = 可以跳过标准化和 diff 以优化性能
         // 1 = compiled and static = can skip normalization AND diff as optimized
         createSimpleExpression(
           slotFlag + (__DEV__ ? ` /* ${slotFlagsText[slotFlag]} */` : ``),
@@ -369,6 +420,13 @@ export function buildSlots(
   }
 }
 
+/**
+ * 构建动态插槽对象
+ * @param name 插槽名称表达式
+ * @param fn 插槽函数
+ * @param index 可选的索引，用于条件分支
+ * @returns 构建的对象表达式
+ */
 function buildDynamicSlot(
   name: ExpressionNode,
   fn: FunctionExpression,
@@ -386,6 +444,11 @@ function buildDynamicSlot(
   return createObjectExpression(props)
 }
 
+/**
+ * 检查是否有转发的插槽
+ * @param children 子节点列表
+ * @returns 如果有转发的插槽则返回 true
+ */
 function hasForwardedSlots(children: TemplateChildNode[]): boolean {
   for (let i = 0; i < children.length; i++) {
     const child = children[i]
@@ -412,6 +475,11 @@ function hasForwardedSlots(children: TemplateChildNode[]): boolean {
   return false
 }
 
+/**
+ * 检查节点是否为非空白内容
+ * @param node 模板子节点
+ * @returns 如果节点是非空白内容则返回 true
+ */
 function isNonWhitespaceContent(node: TemplateChildNode): boolean {
   if (node.type !== NodeTypes.TEXT && node.type !== NodeTypes.TEXT_CALL)
     return true

@@ -1,3 +1,7 @@
+/**
+ * 代码生成器模块
+ * 负责将编译后的 AST 转换为可执行的 JavaScript/TypeScript 代码
+ */
 import type { CodegenOptions } from './options'
 import {
   type ArrayExpression,
@@ -27,21 +31,21 @@ import {
   getVNodeBlockHelper,
   getVNodeHelper,
   locStub,
-} from './ast'
-import { SourceMapGenerator } from 'source-map-js'
+} from './ast' // 导入 AST 相关类型和工具函数
+import { SourceMapGenerator } from 'source-map-js' // 导入源代码映射生成器
 import {
   advancePositionWithMutation,
   assert,
   isSimpleIdentifier,
   toValidAssetId,
-} from './utils'
+} from './utils' // 导入工具函数
 import {
   PatchFlagNames,
   type PatchFlags,
   isArray,
   isString,
   isSymbol,
-} from '@vue/shared'
+} from '@vue/shared' // 导入共享工具函数和类型
 import {
   CREATE_COMMENT,
   CREATE_ELEMENT_VNODE,
@@ -57,17 +61,19 @@ import {
   WITH_CTX,
   WITH_DIRECTIVES,
   helperNameMap,
-} from './runtimeHelpers'
-import type { ImportItem } from './transform'
+} from './runtimeHelpers' // 导入运行时辅助函数
+import type { ImportItem } from './transform' // 导入转换相关类型
 
 /**
- * The `SourceMapGenerator` type from `source-map-js` is a bit incomplete as it
- * misses `toJSON()`. We also need to add types for internal properties which we
- * need to access for better performance.
+ * `SourceMapGenerator` 类型扩展
+ * 补充 `source-map-js` 库中缺少的 `toJSON()` 方法定义
+ * 并添加我们需要访问的内部属性类型以提高性能
  *
- * Since TS 5.3, dts generation starts to strangely include broken triple slash
- * references for source-map-js, so we are inlining all source map related types
- * here to to workaround that.
+ * 由于 TS 5.3 开始，dts 生成会奇怪地包含 source-map-js 的错误三斜杠引用
+ * 因此我们在此处内联所有与 source map 相关的类型以解决此问题
+ */
+/**
+ * 代码生成器源代码映射生成器接口
  */
 export interface CodegenSourceMapGenerator {
   setSourceContent(sourceFile: string, sourceContent: string): void
@@ -80,6 +86,9 @@ export interface CodegenSourceMapGenerator {
   }
 }
 
+/**
+ * 原始源代码映射接口
+ */
 export interface RawSourceMap {
   file?: string
   sourceRoot?: string
@@ -90,6 +99,10 @@ export interface RawSourceMap {
   mappings: string
 }
 
+/**
+ * 映射项接口
+ * 表示源代码和生成代码之间的位置映射
+ */
 interface MappingItem {
   source: string
   generatedLine: number
@@ -99,12 +112,28 @@ interface MappingItem {
   name: string | null
 }
 
+/**
+ * 纯函数注释
+ * 用于标记纯函数，帮助压缩工具识别不会产生副作用的代码
+ */
 const PURE_ANNOTATION = `/*@__PURE__*/`
 
+/**
+ * 辅助函数别名生成器
+ * @param s - 辅助函数的 symbol 键
+ * @returns 格式化的别名字符串
+ */
 const aliasHelper = (s: symbol) => `${helperNameMap[s]}: _${helperNameMap[s]}`
 
+/**
+ * 代码生成节点类型
+ * 可以是模板子节点、JS 子节点或 SSR 代码生成节点
+ */
 type CodegenNode = TemplateChildNode | JSChildNode | SSRCodegenNode
 
+/**
+ * 代码生成结果接口
+ */
 export interface CodegenResult {
   code: string
   preamble: string
@@ -112,13 +141,19 @@ export interface CodegenResult {
   map?: RawSourceMap
 }
 
+/**
+ * 换行符类型枚举
+ */
 enum NewlineType {
-  Start = 0,
-  End = -1,
-  None = -2,
-  Unknown = -3,
+  Start = 0, // 开始处换行
+  End = -1, // 结束处换行
+  None = -2, // 不换行
+  Unknown = -3, // 未知换行类型
 }
 
+/**
+ * 代码生成上下文接口
+ */
 export interface CodegenContext
   extends Omit<Required<CodegenOptions>, 'bindingMetadata' | 'inline'> {
   source: string
@@ -131,11 +166,18 @@ export interface CodegenContext
   map?: CodegenSourceMapGenerator
   helper(key: symbol): string
   push(code: string, newlineIndex?: number, node?: CodegenNode): void
+  // 增加缩进
   indent(): void
   deindent(withoutNewLine?: boolean): void
   newline(): void
 }
 
+/**
+ * 创建代码生成上下文
+ * @param ast - 根 AST 节点
+ * @param options - 代码生成选项
+ * @returns 代码生成上下文对象
+ */
 function createCodegenContext(
   ast: RootNode,
   {
@@ -194,9 +236,10 @@ function createCodegenContext(
         }
         if (newlineIndex === NewlineType.Unknown) {
           // multiple newlines, full iteration
+          // 更新位置信息
           advancePositionWithMutation(context, code)
         } else {
-          // fast paths
+          // 快速路径处理
           context.offset += code.length
           if (newlineIndex === NewlineType.None) {
             // no newlines; fast path to avoid newline detection
@@ -242,24 +285,36 @@ function createCodegenContext(
         newline(--context.indentLevel)
       }
     },
+    /**
+     * 按当前缩进级别换行
+     */
     newline() {
       newline(context.indentLevel)
     },
   }
 
+  /**
+   * 生成带缩进的换行
+   * @param n - 缩进级别
+   */
   function newline(n: number) {
     context.push('\n' + `  `.repeat(n), NewlineType.Start)
   }
 
+  /**
+   * 添加源代码映射
+   * @param loc - 源代码位置
+   * @param name - 标识符名称
+   */
   function addMapping(loc: Position, name: string | null = null) {
-    // we use the private property to directly add the mapping
-    // because the addMapping() implementation in source-map-js has a bunch of
-    // unnecessary arg and validation checks that are pure overhead in our case.
+    // 直接使用私有属性添加映射
+    // 因为 source-map-js 中的 addMapping() 实现有很多不必要的参数和验证检查
+    // 在我们的情况下这些都是纯开销
     const { _names, _mappings } = context.map!
     if (name !== null && !_names.has(name)) _names.add(name)
     _mappings.add({
       originalLine: loc.line,
-      originalColumn: loc.column - 1, // source-map column is 0 based
+      originalColumn: loc.column - 1, // source-map 列是从 0 开始的
       generatedLine: context.line,
       generatedColumn: context.column - 1,
       source: filename,
@@ -267,8 +322,9 @@ function createCodegenContext(
     })
   }
 
+  // 非浏览器环境且开启源代码映射时初始化映射生成器
   if (!__BROWSER__ && sourceMap) {
-    // lazy require source-map implementation, only in non-browser builds
+    // 延迟加载 source-map 实现，仅在非浏览器构建中使用
     context.map =
       new SourceMapGenerator() as unknown as CodegenSourceMapGenerator
     context.map.setSourceContent(filename, context.source)
@@ -278,14 +334,23 @@ function createCodegenContext(
   return context
 }
 
+/**
+ * 生成代码
+ * @param ast - 根 AST 节点
+ * @param options - 代码生成选项
+ * @returns 代码生成结果
+ */
 export function generate(
   ast: RootNode,
   options: CodegenOptions & {
     onContextCreated?: (context: CodegenContext) => void
   } = {},
 ): CodegenResult {
+  // 创建代码生成上下文
   const context = createCodegenContext(ast, options)
+  // 如果提供了上下文创建回调，则调用它
   if (options.onContextCreated) options.onContextCreated(context)
+  // 从上下文中提取所需的属性
   const {
     mode,
     push,
@@ -297,97 +362,136 @@ export function generate(
     ssr,
   } = context
 
+  // 获取所有辅助函数
   const helpers = Array.from(ast.helpers)
+  // 是否有辅助函数
   const hasHelpers = helpers.length > 0
+  // 是否使用 with 块
+  // 当不使用前缀标识符且模式不是模块时使用 with 块
   const useWithBlock = !prefixIdentifiers && mode !== 'module'
+  // 是否生成作用域 ID
   const genScopeId = !__BROWSER__ && scopeId != null && mode === 'module'
+  // 是否内联 setup
   const isSetupInlined = !__BROWSER__ && !!options.inline
 
-  // preambles
-  // in setup() inline mode, the preamble is generated in a sub context
-  // and returned separately.
+  // 前置代码
+  // 在 setup() 内联模式下，前置代码在子上下文中生成并单独返回
+  // 创建前置代码上下文
   const preambleContext = isSetupInlined
     ? createCodegenContext(ast, options)
     : context
+  // 非浏览器环境且模块模式下生成模块前置代码
   if (!__BROWSER__ && mode === 'module') {
     genModulePreamble(ast, preambleContext, genScopeId, isSetupInlined)
   } else {
+    // 生成函数前置代码
     genFunctionPreamble(ast, preambleContext)
   }
-  // enter render function
+  // 进入渲染函数
+  // 确定函数名称
   const functionName = ssr ? `ssrRender` : `render`
+  // 确定函数参数
   const args = ssr ? ['_ctx', '_push', '_parent', '_attrs'] : ['_ctx', '_cache']
+  // 非浏览器环境且有绑定元数据且非内联模式下添加额外参数
   if (!__BROWSER__ && options.bindingMetadata && !options.inline) {
-    // binding optimization args
+    // 绑定优化参数
     args.push('$props', '$setup', '$data', '$options')
   }
+  // 生成函数签名
   const signature =
     !__BROWSER__ && options.isTS
       ? args.map(arg => `${arg}: any`).join(',')
       : args.join(', ')
 
+  // 如果是内联 setup 模式
   if (isSetupInlined) {
     push(`(${signature}) => {`)
   } else {
+    // 生成函数定义
     push(`function ${functionName}(${signature}) {`)
   }
   indent()
 
+  // 如果使用 with 块
   if (useWithBlock) {
     push(`with (_ctx) {`)
+    // 增加缩进
     indent()
-    // function mode const declarations should be inside with block
-    // also they should be renamed to avoid collision with user properties
+    // 函数模式下的常量声明应该在 with 块内
+    // 并且应该重命名以避免与用户属性冲突
+    // 如果有辅助函数
     if (hasHelpers) {
+      // 生成辅助函数常量声明
       push(
         `const { ${helpers.map(aliasHelper).join(', ')} } = _Vue\n`,
         NewlineType.End,
       )
+      // 换行
+      // 换行
       newline()
     }
   }
 
-  // generate asset resolution statements
+  // 生成资源解析语句
+  // 如果有组件
   if (ast.components.length) {
+    // 生成组件资源
     genAssets(ast.components, 'component', context)
+    // 如果有指令或临时变量
     if (ast.directives.length || ast.temps > 0) {
       newline()
     }
   }
+  // 如果有指令
   if (ast.directives.length) {
+    // 生成指令资源
     genAssets(ast.directives, 'directive', context)
+    // 如果有临时变量
     if (ast.temps > 0) {
       newline()
     }
   }
+  // 兼容模式下如果有过滤器
   if (__COMPAT__ && ast.filters && ast.filters.length) {
     newline()
+    // 生成过滤器资源
     genAssets(ast.filters, 'filter', context)
     newline()
   }
 
   if (ast.temps > 0) {
+    // 生成 let 声明
     push(`let `)
+    // 循环生成临时变量
     for (let i = 0; i < ast.temps; i++) {
       push(`${i > 0 ? `, ` : ``}_temp${i}`)
     }
   }
+  // 如果有组件、指令或临时变量
   if (ast.components.length || ast.directives.length || ast.temps) {
     push(`\n`, NewlineType.Start)
+    // 换行
     newline()
   }
 
-  // generate the VNode tree expression
+  // 生成 VNode 树表达式
+  // 非 SSR 模式下
   if (!ssr) {
+    // 添加 return 语句
     push(`return `)
   }
+  // 如果有代码生成节点
   if (ast.codegenNode) {
+    // 生成节点
     genNode(ast.codegenNode, context)
   } else {
+    // 否则返回 null
     push(`null`)
   }
 
   if (useWithBlock) {
+    // 减少缩进
+    // 减少缩进
     deindent()
     push(`}`)
   }
@@ -395,6 +499,7 @@ export function generate(
   deindent()
   push(`}`)
 
+  // 返回代码生成结果
   return {
     ast,
     code: context.code,
@@ -403,7 +508,13 @@ export function generate(
   }
 }
 
+/**
+ * 生成函数前置代码
+ * @param ast - 根 AST 节点
+ * @param context - 代码生成上下文
+ */
 function genFunctionPreamble(ast: RootNode, context: CodegenContext) {
+  // 从上下文中提取所需的属性
   const {
     ssr,
     prefixIdentifiers,
@@ -413,14 +524,14 @@ function genFunctionPreamble(ast: RootNode, context: CodegenContext) {
     runtimeGlobalName,
     ssrRuntimeModuleName,
   } = context
+  // 确定 Vue 绑定方式
   const VueBinding =
     !__BROWSER__ && ssr
       ? `require(${JSON.stringify(runtimeModuleName)})`
       : runtimeGlobalName
-  // Generate const declaration for helpers
-  // In prefix mode, we place the const declaration at top so it's done
-  // only once; But if we not prefixing, we place the declaration inside the
-  // with block so it doesn't incur the `in` check cost for every helper access.
+  // 生成辅助函数的常量声明
+  // 在前缀模式下，我们将常量声明放在顶部，这样只做一次
+  // 但如果不使用前缀，我们将声明放在 with 块内，这样就不会为每次辅助函数访问产生 `in` 检查成本
   const helpers = Array.from(ast.helpers)
   if (helpers.length > 0) {
     if (!__BROWSER__ && prefixIdentifiers) {
@@ -465,6 +576,13 @@ function genFunctionPreamble(ast: RootNode, context: CodegenContext) {
   push(`return `)
 }
 
+/**
+ * 生成模块前置代码
+ * @param ast - 根 AST 节点
+ * @param context - 代码生成上下文
+ * @param genScopeId - 是否生成作用域 ID
+ * @param inline - 是否内联
+ */
 function genModulePreamble(
   ast: RootNode,
   context: CodegenContext,
@@ -532,6 +650,12 @@ function genModulePreamble(
   }
 }
 
+/**
+ * 生成资源解析语句
+ * @param assets - 资源名称数组
+ * @param type - 资源类型（组件、指令或过滤器）
+ * @param context - 代码生成上下文
+ */
 function genAssets(
   assets: string[],
   type: 'component' | 'directive' | 'filter',
@@ -562,6 +686,11 @@ function genAssets(
   }
 }
 
+/**
+ * 生成提升的变量
+ * @param hoists - 提升的节点数组
+ * @param context - 代码生成上下文
+ */
 function genHoists(hoists: (JSChildNode | null)[], context: CodegenContext) {
   if (!hoists.length) {
     return
@@ -582,6 +711,11 @@ function genHoists(hoists: (JSChildNode | null)[], context: CodegenContext) {
   context.pure = false
 }
 
+/**
+ * 生成导入语句
+ * @param importsOptions - 导入选项数组
+ * @param context - 代码生成上下文
+ */
 function genImports(importsOptions: ImportItem[], context: CodegenContext) {
   if (!importsOptions.length) {
     return
@@ -594,6 +728,11 @@ function genImports(importsOptions: ImportItem[], context: CodegenContext) {
   })
 }
 
+/**
+ * 判断节点是否为文本类型
+ * @param n - 要检查的节点
+ * @returns 是否为文本类型
+ */
 function isText(n: string | CodegenNode) {
   return (
     isString(n) ||
@@ -604,6 +743,11 @@ function isText(n: string | CodegenNode) {
   )
 }
 
+/**
+ * 将节点列表生成为数组形式
+ * @param nodes - 节点列表
+ * @param context - 代码生成上下文
+ */
 function genNodeListAsArray(
   nodes: (string | CodegenNode | TemplateChildNode[])[],
   context: CodegenContext,
@@ -618,6 +762,13 @@ function genNodeListAsArray(
   context.push(`]`)
 }
 
+/**
+ * 生成节点列表
+ * @param nodes - 节点列表
+ * @param context - 代码生成上下文
+ * @param multilines - 是否多行显示
+ * @param comma - 是否添加逗号分隔符
+ */
 function genNodeList(
   nodes: (string | symbol | CodegenNode | TemplateChildNode[])[],
   context: CodegenContext,
@@ -645,6 +796,11 @@ function genNodeList(
   }
 }
 
+/**
+ * 生成节点
+ * @param node - 要生成的节点
+ * @param context - 代码生成上下文
+ */
 function genNode(node: CodegenNode | symbol | string, context: CodegenContext) {
   if (isString(node)) {
     context.push(node, NewlineType.Unknown)
@@ -742,6 +898,11 @@ function genNode(node: CodegenNode | symbol | string, context: CodegenContext) {
   }
 }
 
+/**
+ * 生成文本节点
+ * @param node - 文本节点
+ * @param context - 代码生成上下文
+ */
 function genText(
   node: TextNode | SimpleExpressionNode,
   context: CodegenContext,
@@ -749,6 +910,11 @@ function genText(
   context.push(JSON.stringify(node.content), NewlineType.Unknown, node)
 }
 
+/**
+ * 生成表达式
+ * @param node - 表达式节点
+ * @param context - 代码生成上下文
+ */
 function genExpression(node: SimpleExpressionNode, context: CodegenContext) {
   const { content, isStatic } = node
   context.push(
@@ -758,6 +924,11 @@ function genExpression(node: SimpleExpressionNode, context: CodegenContext) {
   )
 }
 
+/**
+ * 生成插值表达式
+ * @param node - 插值节点
+ * @param context - 代码生成上下文
+ */
 function genInterpolation(node: InterpolationNode, context: CodegenContext) {
   const { push, helper, pure } = context
   if (pure) push(PURE_ANNOTATION)
@@ -766,6 +937,11 @@ function genInterpolation(node: InterpolationNode, context: CodegenContext) {
   push(`)`)
 }
 
+/**
+ * 生成复合表达式
+ * @param node - 复合表达式节点
+ * @param context - 代码生成上下文
+ */
 function genCompoundExpression(
   node: CompoundExpressionNode,
   context: CodegenContext,
@@ -780,6 +956,11 @@ function genCompoundExpression(
   }
 }
 
+/**
+ * 生成属性键表达式
+ * @param node - 表达式节点
+ * @param context - 代码生成上下文
+ */
 function genExpressionAsPropertyKey(
   node: ExpressionNode,
   context: CodegenContext,
@@ -800,6 +981,11 @@ function genExpressionAsPropertyKey(
   }
 }
 
+/**
+ * 生成注释节点
+ * @param node - 注释节点
+ * @param context - 代码生成上下文
+ */
 function genComment(node: CommentNode, context: CodegenContext) {
   const { push, helper, pure } = context
   if (pure) {
@@ -812,6 +998,11 @@ function genComment(node: CommentNode, context: CodegenContext) {
   )
 }
 
+/**
+ * 生成 VNode 调用
+ * @param node - VNode 调用节点
+ * @param context - 代码生成上下文
+ */
 function genVNodeCall(node: VNodeCall, context: CodegenContext) {
   const { push, helper, pure } = context
   const {
@@ -875,6 +1066,11 @@ function genVNodeCall(node: VNodeCall, context: CodegenContext) {
   }
 }
 
+/**
+ * 生成可空参数
+ * @param args - 参数数组
+ * @returns 处理后的参数数组
+ */
 function genNullableArgs(args: any[]): CallExpression['arguments'] {
   let i = args.length
   while (i--) {
@@ -883,7 +1079,12 @@ function genNullableArgs(args: any[]): CallExpression['arguments'] {
   return args.slice(0, i + 1).map(arg => arg || `null`)
 }
 
-// JavaScript
+// JavaScript 代码生成函数
+/**
+ * 生成调用表达式
+ * @param node - 调用表达式节点
+ * @param context - 代码生成上下文
+ */
 function genCallExpression(node: CallExpression, context: CodegenContext) {
   const { push, helper, pure } = context
   const callee = isString(node.callee) ? node.callee : helper(node.callee)
@@ -895,6 +1096,11 @@ function genCallExpression(node: CallExpression, context: CodegenContext) {
   push(`)`)
 }
 
+/**
+ * 生成对象表达式
+ * @param node - 对象表达式节点
+ * @param context - 代码生成上下文
+ */
 function genObjectExpression(node: ObjectExpression, context: CodegenContext) {
   const { push, indent, deindent, newline } = context
   const { properties } = node
@@ -925,10 +1131,20 @@ function genObjectExpression(node: ObjectExpression, context: CodegenContext) {
   push(multilines ? `}` : ` }`)
 }
 
+/**
+ * 生成数组表达式
+ * @param node - 数组表达式节点
+ * @param context - 代码生成上下文
+ */
 function genArrayExpression(node: ArrayExpression, context: CodegenContext) {
   genNodeListAsArray(node.elements as CodegenNode[], context)
 }
 
+/**
+ * 生成函数表达式
+ * @param node - 函数表达式节点
+ * @param context - 代码生成上下文
+ */
 function genFunctionExpression(
   node: FunctionExpression,
   context: CodegenContext,
@@ -974,6 +1190,11 @@ function genFunctionExpression(
   }
 }
 
+/**
+ * 生成条件表达式
+ * @param node - 条件表达式节点
+ * @param context - 代码生成上下文
+ */
 function genConditionalExpression(
   node: ConditionalExpression,
   context: CodegenContext,
@@ -1010,6 +1231,11 @@ function genConditionalExpression(
   needNewline && deindent(true /* without newline */)
 }
 
+/**
+ * 生成缓存表达式
+ * @param node - 缓存表达式节点
+ * @param context - 代码生成上下文
+ */
 function genCacheExpression(node: CacheExpression, context: CodegenContext) {
   const { push, helper, indent, deindent, newline } = context
   const { needPauseTracking, needArraySpread } = node
@@ -1041,6 +1267,11 @@ function genCacheExpression(node: CacheExpression, context: CodegenContext) {
   }
 }
 
+/**
+ * 生成模板字面量
+ * @param node - 模板字面量节点
+ * @param context - 代码生成上下文
+ */
 function genTemplateLiteral(node: TemplateLiteral, context: CodegenContext) {
   const { push, indent, deindent } = context
   push('`')
@@ -1061,6 +1292,11 @@ function genTemplateLiteral(node: TemplateLiteral, context: CodegenContext) {
   push('`')
 }
 
+/**
+ * 生成 if 语句
+ * @param node - if 语句节点
+ * @param context - 代码生成上下文
+ */
 function genIfStatement(node: IfStatement, context: CodegenContext) {
   const { push, indent, deindent } = context
   const { test, consequent, alternate } = node
@@ -1085,6 +1321,11 @@ function genIfStatement(node: IfStatement, context: CodegenContext) {
   }
 }
 
+/**
+ * 生成赋值表达式
+ * @param node - 赋值表达式节点
+ * @param context - 代码生成上下文
+ */
 function genAssignmentExpression(
   node: AssignmentExpression,
   context: CodegenContext,
@@ -1094,6 +1335,11 @@ function genAssignmentExpression(
   genNode(node.right, context)
 }
 
+/**
+ * 生成序列表达式
+ * @param node - 序列表达式节点
+ * @param context - 代码生成上下文
+ */
 function genSequenceExpression(
   node: SequenceExpression,
   context: CodegenContext,
@@ -1103,6 +1349,12 @@ function genSequenceExpression(
   context.push(`)`)
 }
 
+/**
+ * 生成返回语句
+ * @param {Object} param - 参数对象
+ * @param {CodegenNode | CodegenNode[]} param.returns - 返回的节点或节点数组
+ * @param context - 代码生成上下文
+ */
 function genReturnStatement(
   { returns }: ReturnStatement,
   context: CodegenContext,

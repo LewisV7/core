@@ -1,3 +1,7 @@
+/**
+ * v-on 指令转换处理
+ * 此文件负责处理 Vue 模板中 v-on 指令的转换逻辑
+ */
 import type { DirectiveTransform, DirectiveTransformResult } from '../transform'
 import {
   type DirectiveNode,
@@ -16,16 +20,27 @@ import { validateBrowserExpression } from '../validateExpression'
 import { hasScopeRef, isFnExpression, isMemberExpression } from '../utils'
 import { TO_HANDLER_KEY } from '../runtimeHelpers'
 
+/**
+ * v-on 指令节点接口
+ * 扩展自 DirectiveNode，用于表示带有参数的 v-on 指令
+ * @property arg - 指令参数（事件名）
+ * @property exp - 指令表达式（事件处理函数）
+ * 注意：无参数的 v-on 指令在 ./transformElement.ts 中直接处理
+ */
 export interface VOnDirectiveNode extends DirectiveNode {
-  // v-on without arg is handled directly in ./transformElement.ts due to its affecting
-  // codegen for the entire props object. This transform here is only for v-on
-  // *with* args.
   arg: ExpressionNode
-  // exp is guaranteed to be a simple expression here because v-on w/ arg is
-  // skipped by transformExpression as a special case.
   exp: SimpleExpressionNode | undefined
 }
 
+/**
+ * v-on 指令转换函数
+ * 将 v-on 指令转换为相应的属性对象
+ * @param dir - v-on 指令节点
+ * @param node - 包含指令的元素节点
+ * @param context - 转换上下文
+ * @param augmentor - 扩展编译器的增强函数
+ * @returns 转换结果，包含生成的属性对象
+ */
 export const transformOn: DirectiveTransform = (
   dir,
   node,
@@ -33,32 +48,35 @@ export const transformOn: DirectiveTransform = (
   augmentor,
 ) => {
   const { loc, modifiers, arg } = dir as VOnDirectiveNode
+  // 检查是否缺少表达式且没有修饰符
   if (!dir.exp && !modifiers.length) {
     context.onError(createCompilerError(ErrorCodes.X_V_ON_NO_EXPRESSION, loc))
   }
   let eventName: ExpressionNode
+  // 处理事件名
   if (arg.type === NodeTypes.SIMPLE_EXPRESSION) {
     if (arg.isStatic) {
       let rawName = arg.content
+      // 开发环境下检查是否使用了 vnode 钩子
       if (__DEV__ && rawName.startsWith('vnode')) {
         context.onError(createCompilerError(ErrorCodes.X_VNODE_HOOKS, arg.loc))
       }
+      // 处理 vue: 前缀的事件名
       if (rawName.startsWith('vue:')) {
         rawName = `vnode-${rawName.slice(4)}`
       }
+      // 构建事件字符串
       const eventString =
         node.tagType !== ElementTypes.ELEMENT ||
         rawName.startsWith('vnode') ||
         !/[A-Z]/.test(rawName)
-          ? // for non-element and vnode lifecycle event listeners, auto convert
-            // it to camelCase. See issue #2249
+          ? // 对于非元素节点和 vnode 生命周期事件监听器，自动转换为驼峰式
             toHandlerKey(camelize(rawName))
-          : // preserve case for plain element listeners that have uppercase
-            // letters, as these may be custom elements' custom events
+          : // 对于包含大写字母的普通元素监听器，保留原始大小写
             `on:${rawName}`
       eventName = createSimpleExpression(eventString, true, arg.loc)
     } else {
-      // #2388
+      // 动态事件名，使用 TO_HANDLER_KEY 辅助函数处理
       eventName = createCompoundExpression([
         `${context.helperString(TO_HANDLER_KEY)}(`,
         arg,
@@ -66,26 +84,28 @@ export const transformOn: DirectiveTransform = (
       ])
     }
   } else {
-    // already a compound expression.
+    // 已经是复合表达式，直接添加 TO_HANDLER_KEY 辅助函数
     eventName = arg
     eventName.children.unshift(`${context.helperString(TO_HANDLER_KEY)}(`)
     eventName.children.push(`)`)
   }
 
-  // handler processing
+  // 处理事件处理函数
   let exp: ExpressionNode | undefined = dir.exp as
     | SimpleExpressionNode
     | undefined
+  // 空表达式处理
   if (exp && !exp.content.trim()) {
     exp = undefined
   }
+  // 初始化是否应该缓存处理函数的标志
   let shouldCache: boolean = context.cacheHandlers && !exp && !context.inVOnce
   if (exp) {
     const isMemberExp = isMemberExpression(exp, context)
     const isInlineStatement = !(isMemberExp || isFnExpression(exp, context))
-    const hasMultipleStatements = exp.content.includes(`;`)
+    const hasMultipleStatements = exp.content.includes(`;`) // 是否包含多个语句
 
-    // process the expression since it's been skipped
+    // 处理表达式（之前被跳过了）
     if (!__BROWSER__ && context.prefixIdentifiers) {
       isInlineStatement && context.addIdentifiers(`$event`)
       exp = dir.exp = processExpression(
@@ -95,28 +115,21 @@ export const transformOn: DirectiveTransform = (
         hasMultipleStatements,
       )
       isInlineStatement && context.removeIdentifiers(`$event`)
-      // with scope analysis, the function is hoistable if it has no reference
-      // to scope variables.
+      // 根据作用域分析，如果函数没有引用作用域变量，则可以被提升
       shouldCache =
         context.cacheHandlers &&
-        // unnecessary to cache inside v-once
+        // v-once 内部不需要缓存
         !context.inVOnce &&
-        // runtime constants don't need to be cached
-        // (this is analyzed by compileScript in SFC <script setup>)
+        // 运行时常量不需要缓存
         !(exp.type === NodeTypes.SIMPLE_EXPRESSION && exp.constType > 0) &&
-        // #1541 bail if this is a member exp handler passed to a component -
-        // we need to use the original function to preserve arity,
-        // e.g. <transition> relies on checking cb.length to determine
-        // transition end handling. Inline function is ok since its arity
-        // is preserved even when cached.
+        // 组件上的成员表达式处理函数不需要缓存，以保留函数参数数量
+        // 例如 <transition> 依赖检查 cb.length 来确定过渡结束处理
         !(isMemberExp && node.tagType === ElementTypes.COMPONENT) &&
-        // bail if the function references closure variables (v-for, v-slot)
-        // it must be passed fresh to avoid stale values.
+        // 如果函数引用了闭包变量(v-for, v-slot)，不需要缓存
+        // 必须传递新函数以避免过时的值
         !hasScopeRef(exp, context.identifiers)
-      // If the expression is optimizable and is a member expression pointing
-      // to a function, turn it into invocation (and wrap in an arrow function
-      // below) so that it always accesses the latest value when called - thus
-      // avoiding the need to be patched.
+      // 如果表达式可优化且是指向函数的成员表达式，将其转换为调用形式
+      // 这样在调用时总是访问最新值，从而避免需要补丁
       if (shouldCache && isMemberExp) {
         if (exp.type === NodeTypes.SIMPLE_EXPRESSION) {
           exp.content = `${exp.content} && ${exp.content}(...args)`
@@ -126,6 +139,7 @@ export const transformOn: DirectiveTransform = (
       }
     }
 
+    // 开发环境下在浏览器中验证表达式
     if (__DEV__ && __BROWSER__) {
       validateBrowserExpression(
         exp as SimpleExpressionNode,
@@ -135,46 +149,47 @@ export const transformOn: DirectiveTransform = (
       )
     }
 
+    // 将内联语句或需要缓存的成员表达式包装为函数表达式
     if (isInlineStatement || (shouldCache && isMemberExp)) {
-      // wrap inline statement in a function expression
       exp = createCompoundExpression([
         `${
           isInlineStatement
             ? !__BROWSER__ && context.isTS
-              ? `($event: any)`
-              : `$event`
+              ? `($event: any)` // TypeScript 环境下添加类型注解
+              : `$event` // JavaScript 环境下直接使用 $event
             : `${
                 !__BROWSER__ && context.isTS ? `\n//@ts-ignore\n` : ``
-              }(...args)`
-        } => ${hasMultipleStatements ? `{` : `(`}`,
+              }(...args)` // 成员表达式使用 ...args
+        } => ${hasMultipleStatements ? `{` : `(`}`, // 多语句用 {}，单语句用 ()
         exp,
         hasMultipleStatements ? `}` : `)`,
       ])
     }
   }
 
+  // 构建转换结果
   let ret: DirectiveTransformResult = {
     props: [
       createObjectProperty(
         eventName,
-        exp || createSimpleExpression(`() => {}`, false, loc),
+        exp || createSimpleExpression(`() => {}`, false, loc), // 如果没有表达式，提供空函数
       ),
     ],
   }
 
-  // apply extended compiler augmentor
+  // 应用扩展编译器的增强函数
   if (augmentor) {
     ret = augmentor(ret)
   }
 
+  // 如果需要缓存，缓存处理函数
   if (shouldCache) {
-    // cache handlers so that it's always the same handler being passed down.
-    // this avoids unnecessary re-renders when users use inline handlers on
-    // components.
+    // 缓存处理函数，确保总是传递相同的处理函数
+    // 这避免了用户在组件上使用内联处理函数时的不必要重新渲染
     ret.props[0].value = context.cache(ret.props[0].value)
   }
 
-  // mark the key as handler for props normalization check
+  // 标记键为处理函数，用于属性规范化检查
   ret.props.forEach(p => (p.key.isHandlerKey = true))
   return ret
 }

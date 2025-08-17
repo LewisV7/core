@@ -64,6 +64,9 @@ export interface ParserOptions
   /**
    * Separate option for end users to extend the native elements list
    */
+  /**
+   * 判断一个标签是否为自定义元素的函数
+   */
   isCustomElement?: (tag: string) => boolean | void
   /**
    * Get tag namespace
@@ -98,9 +101,9 @@ export interface ParserOptions
    */
   prefixIdentifiers?: boolean
   /**
-   * A list of parser plugins to enable for `@babel/parser`, which is used to
-   * parse expressions in bindings and interpolations.
-   * https://babeljs.io/docs/en/next/babel-parser#plugins
+   * 为`@babel/parser`启用的解析器插件列表
+   * 用于解析绑定和插值中的表达式
+   * @see https://babeljs.io/docs/en/next/babel-parser#plugins
    */
   expressionPlugins?: ParserPlugin[]
 }
@@ -164,74 +167,78 @@ export type BindingMetadata = {
   __propsAliases?: Record<string, string>
 }
 
+/**
+ * 转换和代码生成共享选项
+ * 包含同时影响转换和代码生成的配置
+ */
 interface SharedTransformCodegenOptions {
   /**
-   * Transform expressions like {{ foo }} to `_ctx.foo`.
-   * If this option is false, the generated code will be wrapped in a
-   * `with (this) { ... }` block.
-   * - This is force-enabled in module mode, since modules are by default strict
-   * and cannot use `with`
+   * 将表达式如 {{ foo }} 转换为 `_ctx.foo`
+   * 如果此选项为false，生成的代码将被包装在`with (this) { ... }`块中
+   * - 在模块模式下此选项被强制启用，因为模块默认是严格模式，不能使用`with`
    * @default mode === 'module'
    */
   prefixIdentifiers?: boolean
   /**
-   * Control whether generate SSR-optimized render functions instead.
-   * The resulting function must be attached to the component via the
-   * `ssrRender` option instead of `render`.
+   * 控制是否生成SSR优化的渲染函数
+   * 生成的函数必须通过`ssrRender`选项而不是`render`附加到组件
    *
-   * When compiler generates code for SSR's fallback branch, we need to set it to false:
+   * 当编译器为SSR的回退分支生成代码时，需要将其设置为false:
    *  - context.ssr = false
    *
-   * see `subTransform` in `ssrTransformComponent.ts`
+   * 参见`ssrTransformComponent.ts`中的`subTransform`
    */
   ssr?: boolean
   /**
-   * Indicates whether the compiler generates code for SSR,
-   * it is always true when generating code for SSR,
-   * regardless of whether we are generating code for SSR's fallback branch,
-   * this means that when the compiler generates code for SSR's fallback branch:
+   * 指示编译器是否为SSR生成代码
+   * 为SSR生成代码时始终为true，无论是否为SSR的回退分支生成代码
+   * 这意味着当编译器为SSR的回退分支生成代码时:
    *  - context.ssr = false
    *  - context.inSSR = true
    */
   inSSR?: boolean
   /**
-   * Optional binding metadata analyzed from script - used to optimize
-   * binding access when `prefixIdentifiers` is enabled.
+   * 从脚本分析的可选绑定元数据
+   * 用于在启用`prefixIdentifiers`时优化绑定访问
    */
   bindingMetadata?: BindingMetadata
   /**
-   * Compile the function for inlining inside setup().
-   * This allows the function to directly access setup() local bindings.
+   * 编译函数以便内联到setup()中
+   * 这允许函数直接访问setup()的本地绑定
    */
   inline?: boolean
   /**
-   * Indicates that transforms and codegen should try to output valid TS code
+   * 指示转换和代码生成应尝试输出有效的TS代码
    */
   isTS?: boolean
   /**
-   * Filename for source map generation.
-   * Also used for self-recursive reference in templates
+   * 用于生成源映射的文件名
+   * 也用于模板中的自递归引用
    * @default 'template.vue.html'
    */
   filename?: string
 }
 
+/**
+ * 转换选项
+ * 用于配置AST转换过程中的各种行为
+ * 继承自共享转换代码生成选项、错误处理选项和编译器兼容性选项
+ */
 export interface TransformOptions
   extends SharedTransformCodegenOptions,
     ErrorHandlingOptions,
     CompilerCompatOptions {
   /**
-   * An array of node transforms to be applied to every AST node.
+   * 应用于每个AST节点的节点转换数组
    */
   nodeTransforms?: NodeTransform[]
   /**
-   * An object of { name: transform } to be applied to every directive attribute
-   * node found on element nodes.
+   * {名称: 转换}对象，应用于在元素节点上找到的每个指令属性节点
    */
   directiveTransforms?: Record<string, DirectiveTransform | undefined>
   /**
-   * An optional hook to transform a node being hoisted.
-   * used by compiler-dom to turn hoisted nodes into stringified HTML vnodes.
+   * 转换被提升节点的可选钩子
+   * 被compiler-dom用于将提升的节点转换为字符串化的HTML虚拟节点
    * @default null
    */
   transformHoist?: HoistTransform | null
@@ -246,29 +253,25 @@ export interface TransformOptions
    */
   isCustomElement?: (tag: string) => boolean | void
   /**
-   * Transform expressions like {{ foo }} to `_ctx.foo`.
-   * If this option is false, the generated code will be wrapped in a
-   * `with (this) { ... }` block.
-   * - This is force-enabled in module mode, since modules are by default strict
-   * and cannot use `with`
+   * 将表达式如 {{ foo }} 转换为 `_ctx.foo`
+   * 如果此选项为false，生成的代码将被包装在`with (this) { ... }`块中
+   * - 在模块模式下此选项被强制启用，因为模块默认是严格模式，不能使用`with`
    * @default mode === 'module'
    */
   prefixIdentifiers?: boolean
   /**
-   * Cache static VNodes and props objects to `_hoisted_x` constants
+   * 将静态虚拟节点和属性对象缓存到`_hoisted_x`常量中
    * @default false
    */
   hoistStatic?: boolean
   /**
-   * Cache v-on handlers to avoid creating new inline functions on each render,
-   * also avoids the need for dynamically patching the handlers by wrapping it.
-   * e.g `@click="foo"` by default is compiled to `{ onClick: foo }`. With this
-   * option it's compiled to:
+   * 缓存v-on处理器，避免在每次渲染时创建新的内联函数
+   * 也避免了通过包装来动态修补处理器的需要
+   * 例如`@click="foo"`默认编译为`{ onClick: foo }`。启用此选项后编译为:
    * ```js
    * { onClick: _cache[0] || (_cache[0] = e => _ctx.foo(e)) }
    * ```
-   * - Requires "prefixIdentifiers" to be enabled because it relies on scope
-   * analysis to determine if a handler is safe to cache.
+   * - 需要启用"prefixIdentifiers"，因为它依赖于作用域分析来确定处理器是否安全缓存
    * @default false
    */
   cacheHandlers?: boolean
@@ -279,71 +282,78 @@ export interface TransformOptions
    */
   expressionPlugins?: ParserPlugin[]
   /**
-   * SFC scoped styles ID
+   * 单文件组件(SFC)的作用域样式ID
    */
   scopeId?: string | null
   /**
-   * Indicates this SFC template has used :slotted in its styles
-   * Defaults to `true` for backwards compatibility - SFC tooling should set it
-   * to `false` if no `:slotted` usage is detected in `<style>`
+   * 指示此SFC模板在其样式中使用了:slotted
+   * 为了向后兼容，默认为`true` - 如果在`<style>`中未检测到`:slotted`使用，SFC工具应将其设置为`false`
    */
   slotted?: boolean
   /**
-   * SFC `<style vars>` injection string
-   * Should already be an object expression, e.g. `{ 'xxxx-color': color }`
-   * needed to render inline CSS variables on component root
+   * 单文件组件(SFC)的`<style vars>`注入字符串
+   * 应该已经是一个对象表达式，例如`{ 'xxxx-color': color }`
+   * 用于在组件根节点上渲染内联CSS变量
    */
   ssrCssVars?: string
   /**
-   * Whether to compile the template assuming it needs to handle HMR.
-   * Some edge cases may need to generate different code for HMR to work
-   * correctly, e.g. #6938, #7138
+   * 是否假设模板需要处理热模块替换(HMR)来进行编译
+   * 一些边缘情况可能需要生成不同的代码才能使HMR正常工作
+   * 例如 #6938, #7138
    */
   hmr?: boolean
 }
 
+/**
+ * 代码生成选项
+ * 用于配置代码生成过程中的各种行为
+ * 继承自共享转换代码生成选项
+ */
 export interface CodegenOptions extends SharedTransformCodegenOptions {
   /**
-   * - `module` mode will generate ES module import statements for helpers
-   * and export the render function as the default export.
-   * - `function` mode will generate a single `const { helpers... } = Vue`
-   * statement and return the render function. It expects `Vue` to be globally
-   * available (or passed by wrapping the code with an IIFE). It is meant to be
-   * used with `new Function(code)()` to generate a render function at runtime.
+   * 代码生成模式
+   * - `module`模式将为帮助函数生成ES模块导入语句，并将渲染函数作为默认导出
+   * - `function`模式将生成一个`const { helpers... } = Vue`语句并返回渲染函数
+   *   它期望`Vue`是全局可用的（或通过用IIFE包装代码来传递）
+   *   它旨在与`new Function(code)()`一起使用，以在运行时生成渲染函数
    * @default 'function'
    */
   mode?: 'module' | 'function'
   /**
-   * Generate source map?
+   * 是否生成源映射
    * @default false
    */
   sourceMap?: boolean
   /**
-   * SFC scoped styles ID
+   * 单文件组件(SFC)的作用域样式ID
    */
   scopeId?: string | null
   /**
-   * Option to optimize helper import bindings via variable assignment
-   * (only used for webpack code-split)
+   * 通过变量赋值优化帮助函数导入绑定的选项
+   * （仅用于webpack代码拆分）
    * @default false
    */
   optimizeImports?: boolean
   /**
-   * Customize where to import runtime helpers from.
+   * 自定义从哪里导入运行时帮助函数
    * @default 'vue'
    */
   runtimeModuleName?: string
   /**
-   * Customize where to import ssr runtime helpers from/**
+   * 自定义从哪里导入SSR运行时帮助函数
    * @default 'vue/server-renderer'
    */
   ssrRuntimeModuleName?: string
   /**
-   * Customize the global variable name of `Vue` to get helpers from
-   * in function mode
+   * 自定义在函数模式下获取帮助函数的`Vue`全局变量名称
    * @default 'Vue'
    */
   runtimeGlobalName?: string
 }
 
+/**
+ * 编译器选项
+ * 组合了解析器选项、转换选项和代码生成选项
+ * 用于配置整个模板编译过程
+ */
 export type CompilerOptions = ParserOptions & TransformOptions & CodegenOptions

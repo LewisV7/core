@@ -345,7 +345,7 @@ export function isReactive(value: unknown): boolean {
     // 使用其中的普通对象再去进行判断
     return isReactive((value as Target)[ReactiveFlags.RAW])
   }
-  // 是否有值并且还有is_reactive标识
+      // 检查值是否存在并且有IS_REACTIVE标识
   return !!(value && (value as Target)[ReactiveFlags.IS_REACTIVE])
 }
 
@@ -362,7 +362,7 @@ export function isReactive(value: unknown): boolean {
  */
 // 是否为只读类型
 export function isReadonly(value: unknown): boolean {
-  // 查看是否存在这个标识
+      // 检查值是否存在并且有IS_READONLY标识
   return !!(value && (value as Target)[ReactiveFlags.IS_READONLY])
 }
 // 是否为浅层类型
