@@ -1,3 +1,8 @@
+/**
+ * Vue 编译器核心解析器
+ * 负责将模板字符串解析为抽象语法树 (AST)
+ * 包含 HTML 解析、指令处理、属性解析等核心功能
+ */
 import {
   type AttributeNode,
   ConstantTypes,
@@ -751,12 +756,25 @@ function onCloseTag(el: ElementNode, end: number, isImplied = false) {
   }
 }
 
+/**
+ * 向前查找字符
+ * 从指定索引开始向前查找特定字符
+ * @param index - 起始索引
+ * @param c - 要查找的字符的ASCII码
+ * @returns 找到的字符索引，若未找到则返回最后一个字符的索引
+ */
 function lookAhead(index: number, c: number) {
   let i = index
   while (currentInput.charCodeAt(i) !== c && i < currentInput.length - 1) i++
   return i
 }
-
+/**
+ * 向后查找字符
+ * 从指定索引开始向后查找特定字符
+ * @param index - 起始索引
+ * @param c - 要查找的字符的ASCII码
+ * @returns 找到的字符索引，若未找到则返回0
+ */
 function backTrack(index: number, c: number) {
   let i = index
   while (currentInput.charCodeAt(i) !== c && i >= 0) i--
@@ -764,6 +782,13 @@ function backTrack(index: number, c: number) {
 }
 
 const specialTemplateDir = new Set(['if', 'else', 'else-if', 'for', 'slot'])
+/**
+ * 判断是否为片段模板
+ * 检查template标签是否包含特殊指令（如v-if、v-for等）
+ * @param tag - 标签名
+ * @param props - 属性列表
+ * @returns 是否为片段模板
+ */
 function isFragmentTemplate({ tag, props }: ElementNode): boolean {
   if (tag === 'template') {
     for (let i = 0; i < props.length; i++) {
@@ -778,6 +803,12 @@ function isFragmentTemplate({ tag, props }: ElementNode): boolean {
   return false
 }
 
+/**
+ * 判断元素是否为组件
+ * @param tag - 标签名
+ * @param props - 属性列表
+ * @returns 是否为组件
+ */
 function isComponent({ tag, props }: ElementNode): boolean {
   if (currentOptions.isCustomElement(tag)) {
     return false
@@ -828,11 +859,22 @@ function isComponent({ tag, props }: ElementNode): boolean {
   return false
 }
 
+/**
+ * 判断字符是否为大写字母
+ * @param c - 字符的ASCII码
+ * @returns 是否为大写字母
+ */
 function isUpperCase(c: number) {
   return c > 64 && c < 91
 }
 
 const windowsNewlineRE = /\r\n/g
+/**
+ * 压缩空白字符
+ * 根据配置处理模板中的空白字符，移除或压缩多余的空白
+ * @param nodes - 模板子节点数组
+ * @returns 处理后的节点数组
+ */
 function condenseWhitespace(nodes: TemplateChildNode[]): TemplateChildNode[] {
   const shouldCondense = currentOptions.whitespace !== 'preserve'
   let removedWhitespace = false
@@ -881,6 +923,11 @@ function condenseWhitespace(nodes: TemplateChildNode[]): TemplateChildNode[] {
   return removedWhitespace ? nodes.filter(Boolean) : nodes
 }
 
+/**
+ * 判断字符串是否全为空白字符
+ * @param str - 要检查的字符串
+ * @returns 是否全为空白字符
+ */
 function isAllWhitespace(str: string) {
   for (let i = 0; i < str.length; i++) {
     if (!isWhitespace(str.charCodeAt(i))) {
@@ -890,6 +937,11 @@ function isAllWhitespace(str: string) {
   return true
 }
 
+/**
+ * 判断字符串是否包含换行符
+ * @param str - 要检查的字符串
+ * @returns 是否包含换行符
+ */
 function hasNewlineChar(str: string) {
   for (let i = 0; i < str.length; i++) {
     const c = str.charCodeAt(i)
@@ -900,6 +952,12 @@ function hasNewlineChar(str: string) {
   return false
 }
 
+/**
+ * 压缩字符串中的连续空白字符
+ * 将连续的空白字符压缩为单个空格
+ * @param str - 要压缩的字符串
+ * @returns 压缩后的字符串
+ */
 function condense(str: string) {
   let ret = ''
   let prevCharIsWhitespace = false
@@ -917,10 +975,20 @@ function condense(str: string) {
   return ret
 }
 
+/**
+ * 添加节点到当前解析上下文
+ * @param node - 要添加的模板子节点
+ */
 function addNode(node: TemplateChildNode) {
   ;(stack[0] || currentRoot).children.push(node)
 }
 
+/**
+ * 获取源码位置信息
+ * @param start - 起始位置索引
+ * @param end - 结束位置索引
+ * @returns 包含位置信息的对象
+ */
 function getLoc(start: number, end?: number): SourceLocation {
   return {
     start: tokenizer.getPos(start),
@@ -935,11 +1003,21 @@ export function cloneLoc(loc: SourceLocation): SourceLocation {
   return getLoc(loc.start.offset, loc.end.offset)
 }
 
+/**
+ * 设置源码位置的结束信息
+ * @param loc - 源码位置对象
+ * @param end - 结束位置索引
+ */
 function setLocEnd(loc: SourceLocation, end: number) {
   loc.end = tokenizer.getPos(end)
   loc.source = getSlice(loc.start.offset, end)
 }
 
+/**
+ * 将指令节点转换为属性节点
+ * @param dir - 指令节点
+ * @returns 转换后的属性节点
+ */
 function dirToAttr(dir: DirectiveNode): AttributeNode {
   const attr: AttributeNode = {
     type: NodeTypes.ATTRIBUTE,
@@ -976,6 +1054,16 @@ enum ExpParseMode {
   Skip,
 }
 
+/**
+ * 创建表达式节点
+ * 处理模板中的表达式，包括静态和动态表达式
+ * @param content - 表达式内容
+ * @param isStatic - 是否为静态表达式
+ * @param loc - 源码位置信息
+ * @param constType - 常量类型
+ * @param parseMode - 解析模式
+ * @returns 创建的表达式节点
+ */
 function createExp(
   content: SimpleExpressionNode['content'],
   isStatic: SimpleExpressionNode['isStatic'] = false,
@@ -1017,12 +1105,22 @@ function createExp(
   return exp
 }
 
+/**
+ * 发出编译错误
+ * @param code - 错误代码
+ * @param index - 错误位置索引
+ * @param message - 错误信息
+ */
 function emitError(code: ErrorCodes, index: number, message?: string) {
   currentOptions.onError(
     createCompilerError(code, getLoc(index, index), undefined, message),
   )
 }
 
+/**
+ * 重置解析器状态
+ * 清空所有临时变量和堆栈，准备新的解析任务
+ */
 function reset() {
   tokenizer.reset()
   currentOpenTag = null
@@ -1033,6 +1131,13 @@ function reset() {
   stack.length = 0
 }
 
+/**
+ * 解析器入口函数
+ * 将输入的模板字符串解析为抽象语法树 (AST)
+ * @param input - 要解析的模板字符串
+ * @param options - 解析器选项
+ * @returns 解析生成的根节点
+ */
 export function baseParse(input: string, options?: ParserOptions): RootNode {
   reset()
   currentInput = input

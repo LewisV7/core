@@ -1,3 +1,9 @@
+/**
+ * Vue编译器过滤器兼容性转换模块
+ * 此模块提供了对Vue 2中过滤器(filters)功能的向后兼容支持
+ * 包含用于检测和重写过滤器表达式的转换函数
+ */
+// 导入类型定义
 import { RESOLVE_FILTER } from '../runtimeHelpers'
 import {
   type AttributeNode,
@@ -14,8 +20,18 @@ import {
 import type { NodeTransform, TransformContext } from '../transform'
 import { toValidAssetId } from '../utils'
 
+/**
+ * 用于匹配有效除法字符的正则表达式
+ * 用于区分过滤器语法和除法运算符
+ */
 const validDivisionCharRE = /[\w).+\-_$\]]/
 
+/**
+ * 转换包含Vue 2过滤器语法的节点
+ * @param node 要转换的AST节点
+ * @param context 转换上下文
+ * @returns 转换后的节点
+ */
 export const transformFilter: NodeTransform = (node, context) => {
   if (!isCompatEnabled(CompilerDeprecationTypes.COMPILER_FILTERS, context)) {
     return
@@ -38,6 +54,11 @@ export const transformFilter: NodeTransform = (node, context) => {
   }
 }
 
+/**
+ * 重写包含过滤器的表达式节点
+ * @param node 表达式节点
+ * @param context 转换上下文
+ */
 function rewriteFilter(node: ExpressionNode, context: TransformContext) {
   if (node.type === NodeTypes.SIMPLE_EXPRESSION) {
     parseFilter(node, context)
@@ -56,6 +77,12 @@ function rewriteFilter(node: ExpressionNode, context: TransformContext) {
   }
 }
 
+/**
+ * 解析并转换过滤器表达式
+ * @param node 简单表达式节点
+ * @param context 转换上下文
+ * @returns 转换后的表达式内容
+ */
 function parseFilter(node: SimpleExpressionNode, context: TransformContext) {
   const exp = node.content
   let inSingle = false
@@ -171,6 +198,13 @@ function parseFilter(node: SimpleExpressionNode, context: TransformContext) {
   }
 }
 
+/**
+ * 包装过滤器表达式
+ * @param expression 原始表达式
+ * @param filter 过滤器名称及参数
+ * @param context 转换上下文
+ * @returns 包装后的表达式字符串
+ */
 function wrapFilter(
   exp: string,
   filter: string,

@@ -1,3 +1,7 @@
+/**
+ * 编译器核心工具函数
+ * 包含AST节点操作、类型检查和转换辅助方法
+ */
 import {
   type BlockCodegenNode,
   type CacheExpression,
@@ -43,9 +47,19 @@ import { parseExpression } from '@babel/parser'
 import type { Expression, Node } from '@babel/types'
 import { unwrapTSNode } from './babelUtils'
 
+/**
+ * 检查一个节点是否是静态表达式
+ * @param p 要检查的JS子节点
+ * @returns 如果节点是静态表达式则返回true，否则返回false
+ */
 export const isStaticExp = (p: JSChildNode): p is SimpleExpressionNode =>
   p.type === NodeTypes.SIMPLE_EXPRESSION && p.isStatic
 
+/**
+ * 检查一个标签是否是Vue核心组件
+ * @param tag 标签名称
+ * @returns 如果是核心组件则返回对应的symbol，否则返回undefined
+ */
 export function isCoreComponent(tag: string): symbol | void {
   switch (tag) {
     case 'Teleport':
@@ -63,10 +77,24 @@ export function isCoreComponent(tag: string): symbol | void {
   }
 }
 
+/**
+ * 匹配非标识符的正则表达式
+ * 用于检查字符串是否不能作为有效的JavaScript标识符
+ */
 const nonIdentifierRE = /^$|^\d|[^\$\w\xA0-\uFFFF]/
-export const isSimpleIdentifier = (name: string): boolean =>
-  !nonIdentifierRE.test(name)
 
+/**
+ * 检查一个字符串是否是简单标识符
+ * @param name 要检查的字符串
+ * @returns 如果是有效标识符则返回true，否则返回false
+ */
+export const isSimpleIdentifier = (name: string): boolean =>
+!nonIdentifierRE.test(name)
+
+/**
+ * 成员表达式词法分析状态
+ * 用于词法分析器跟踪解析成员表达式时的状态
+ */
 enum MemberExpLexState {
   inMemberExp,
   inBrackets,
@@ -74,18 +102,35 @@ enum MemberExpLexState {
   inString,
 }
 
+/**
+ * 匹配有效标识符首字符的正则表达式
+ */
 const validFirstIdentCharRE = /[A-Za-z_$\xA0-\uFFFF]/
+
+/**
+ * 匹配有效标识符字符的正则表达式
+ */
 const validIdentCharRE = /[\.\?\w$\xA0-\uFFFF]/
+
+/**
+ * 匹配空白字符与点或方括号组合的正则表达式
+ */
 const whitespaceRE = /\s+[.[]\s*|\s*[.[]\s+/g
 
+
+/**
+ * 获取表达式的源代码
+ * @param exp 表达式节点
+ * @returns 表达式的源代码字符串
+ */
 const getExpSource = (exp: ExpressionNode): string =>
   exp.type === NodeTypes.SIMPLE_EXPRESSION ? exp.content : exp.loc.source
 
 /**
- * Simple lexer to check if an expression is a member expression. This is
- * lax and only checks validity at the root level (i.e. does not validate exps
- * inside square brackets), but it's ok since these are only used on template
- * expressions and false positives are invalid expressions in the first place.
+ * 检查一个表达式是否是成员表达式的简单词法分析器
+ * 仅在根级别检查有效性（即不验证方括号内的表达式）
+ * @param exp 要检查的表达式节点
+ * @returns 如果是成员表达式则返回true，否则返回false
  */
 export const isMemberExpressionBrowser = (exp: ExpressionNode): boolean => {
   // remove whitespaces around . or [ first
@@ -158,6 +203,12 @@ export const isMemberExpressionBrowser = (exp: ExpressionNode): boolean => {
   return !currentOpenBracketCount && !currentOpenParensCount
 }
 
+/**
+ * 在非浏览器环境中检查一个表达式是否是成员表达式
+ * @param exp 要检查的表达式节点
+ * @param context 转换上下文
+ * @returns 如果是成员表达式则返回true，否则返回false
+ */
 export const isMemberExpressionNode: (
   exp: ExpressionNode,
   context: TransformContext,
@@ -183,17 +234,40 @@ export const isMemberExpressionNode: (
       }
     }
 
+
+/**
+ * 根据环境选择合适的方法检查一个表达式是否是成员表达式
+ * 在浏览器环境中使用isMemberExpressionBrowser，在非浏览器环境中使用isMemberExpressionNode
+ * @param exp 要检查的表达式节点
+ * @param context 转换上下文
+ * @returns 如果是成员表达式则返回true，否则返回false
+ */
 export const isMemberExpression: (
   exp: ExpressionNode,
   context: TransformContext,
 ) => boolean = __BROWSER__ ? isMemberExpressionBrowser : isMemberExpressionNode
 
+/**
+ * 匹配函数表达式的正则表达式
+ * 用于识别箭头函数和普通函数定义
+ */
 const fnExpRE =
   /^\s*(async\s*)?(\([^)]*?\)|[\w$_]+)\s*(:[^=]+)?=>|^\s*(async\s+)?function(?:\s+[\w$]+)?\s*\(/
 
+/**
+ * 在浏览器环境中检查一个表达式是否是函数表达式
+ * @param exp 要检查的表达式节点
+ * @returns 如果是函数表达式则返回true，否则返回false
+ */
 export const isFnExpressionBrowser: (exp: ExpressionNode) => boolean = exp =>
   fnExpRE.test(getExpSource(exp))
 
+/**
+ * 在非浏览器环境中检查一个表达式是否是函数表达式
+ * @param exp 要检查的表达式节点
+ * @param context 转换上下文
+ * @returns 如果是函数表达式则返回true，否则返回false
+ */
 export const isFnExpressionNode: (
   exp: ExpressionNode,
   context: TransformContext,
@@ -225,11 +299,26 @@ export const isFnExpressionNode: (
       }
     }
 
+/**
+ * 根据环境选择合适的方法检查一个表达式是否是函数表达式
+ * 在浏览器环境中使用isFnExpressionBrowser，在非浏览器环境中使用isFnExpressionNode
+ * @param exp 要检查的表达式节点
+ * @param context 转换上下文
+ * @returns 如果是函数表达式则返回true，否则返回false
+ */
 export const isFnExpression: (
   exp: ExpressionNode,
   context: TransformContext,
 ) => boolean = __BROWSER__ ? isFnExpressionBrowser : isFnExpressionNode
 
+/**
+ * 复制并更新位置信息
+ * 创建一个位置对象的副本，并根据给定的源字符串和字符数前进位置
+ * @param pos 原始位置对象
+ * @param source 源字符串
+ * @param numberOfCharacters 要前进的字符数，默认为源字符串的长度
+ * @returns 更新后的新位置对象
+ */
 export function advancePositionWithClone(
   pos: Position,
   source: string,
@@ -246,8 +335,14 @@ export function advancePositionWithClone(
   )
 }
 
-// advance by mutation without cloning (for performance reasons), since this
-// gets called a lot in the parser
+/**
+ * 通过修改而不克隆来前进位置（出于性能原因）
+ * 由于在解析器中被频繁调用，因此采用修改原对象的方式以提高性能
+ * @param pos 要修改的位置对象
+ * @param source 源字符串
+ * @param numberOfCharacters 要前进的字符数，默认为源字符串的长度
+ * @returns 修改后的位置对象
+ */
 export function advancePositionWithMutation(
   pos: Position,
   source: string,
@@ -272,6 +367,12 @@ export function advancePositionWithMutation(
   return pos
 }
 
+/**
+ * 断言函数
+ * 检查条件是否为真，如果为假则抛出错误
+ * @param condition 要检查的条件
+ * @param msg 错误消息，可选
+ */
 export function assert(condition: boolean, msg?: string): void {
   /* v8 ignore next 3 */
   if (!condition) {
@@ -279,6 +380,13 @@ export function assert(condition: boolean, msg?: string): void {
   }
 }
 
+/**
+ * 在元素节点的属性中查找指定名称的指令
+ * @param node 元素节点
+ * @param name 指令名称或正则表达式
+ * @param allowEmpty 是否允许空表达式的指令，默认为false
+ * @returns 找到的指令节点，如果没有找到则返回undefined
+ */
 export function findDir(
   node: ElementNode,
   name: string | RegExp,
@@ -296,6 +404,14 @@ export function findDir(
   }
 }
 
+/**
+ * 在元素节点的属性中查找指定名称的属性
+ * @param node 元素节点
+ * @param name 属性名称
+ * @param dynamicOnly 是否只查找动态属性，默认为false
+ * @param allowEmpty 是否允许空值的属性，默认为false
+ * @returns 找到的属性节点，如果没有找到则返回undefined
+ */
 export function findProp(
   node: ElementNode,
   name: string,
@@ -319,6 +435,12 @@ export function findProp(
   }
 }
 
+/**
+ * 检查指令参数是否是指定名称的静态参数
+ * @param arg 指令参数
+ * @param name 要检查的参数名称
+ * @returns 如果是指定名称的静态参数则返回true，否则返回false
+ */
 export function isStaticArgOf(
   arg: DirectiveNode['arg'],
   name: string,
@@ -326,6 +448,11 @@ export function isStaticArgOf(
   return !!(arg && isStaticExp(arg) && arg.content === name)
 }
 
+/**
+ * 检查元素节点是否有动态键的v-bind指令
+ * @param node 元素节点
+ * @returns 如果有动态键的v-bind指令则返回true，否则返回false
+ */
 export function hasDynamicKeyVBind(node: ElementNode): boolean {
   return node.props.some(
     p =>
@@ -337,20 +464,40 @@ export function hasDynamicKeyVBind(node: ElementNode): boolean {
   )
 }
 
+/**
+ * 检查节点是否是文本节点或插值节点
+ * @param node 要检查的模板子节点
+ * @returns 如果是文本节点或插值节点则返回true，否则返回false
+ */
 export function isText(
   node: TemplateChildNode,
 ): node is TextNode | InterpolationNode {
   return node.type === NodeTypes.INTERPOLATION || node.type === NodeTypes.TEXT
 }
 
+/**
+ * 检查属性是否是v-pre指令
+ * @param p 要检查的元素属性
+ * @returns 如果是v-pre指令则返回true，否则返回false
+ */
 export function isVPre(p: ElementNode['props'][0]): p is DirectiveNode {
   return p.type === NodeTypes.DIRECTIVE && p.name === 'pre'
 }
 
+/**
+ * 检查属性是否是v-slot指令
+ * @param p 要检查的元素属性
+ * @returns 如果是v-slot指令则返回true，否则返回false
+ */
 export function isVSlot(p: ElementNode['props'][0]): p is DirectiveNode {
   return p.type === NodeTypes.DIRECTIVE && p.name === 'slot'
 }
 
+/**
+ * 检查节点是否是模板节点
+ * @param node 要检查的根节点或模板子节点
+ * @returns 如果是模板节点则返回true，否则返回false
+ */
 export function isTemplateNode(
   node: RootNode | TemplateChildNode,
 ): node is TemplateNode {
@@ -359,16 +506,32 @@ export function isTemplateNode(
   )
 }
 
+/**
+ * 检查节点是否是插槽出口节点
+ * @param node 要检查的根节点或模板子节点
+ * @returns 如果是插槽出口节点则返回true，否则返回false
+ */
 export function isSlotOutlet(
   node: RootNode | TemplateChildNode,
 ): node is SlotOutletNode {
   return node.type === NodeTypes.ELEMENT && node.tagType === ElementTypes.SLOT
 }
 
+/**
+ * 包含属性处理辅助函数的集合
+ * 用于识别规范化属性和保护响应式属性的辅助函数
+ */
 const propsHelperSet = new Set([NORMALIZE_PROPS, GUARD_REACTIVE_PROPS])
 
+/**
+ * 获取未规范化的属性
+ * 递归解析属性表达式，直到找到非辅助函数调用的表达式
+ * @param props 属性表达式或空对象字符串
+ * @param callPath 调用路径，用于跟踪辅助函数调用链
+ * @returns 未规范化的属性和调用路径数组
+ */
 function getUnnormalizedProps(
-  props: PropsExpression | '{}',
+    props: PropsExpression | '{}',
   callPath: CallExpression[] = [],
 ): [PropsExpression | '{}', CallExpression[]] {
   if (
@@ -386,6 +549,12 @@ function getUnnormalizedProps(
   }
   return [props, callPath]
 }
+/**
+ * 向VNode或渲染插槽调用中注入属性
+ * @param node VNode调用或渲染插槽调用节点
+ * @param prop 要注入的属性
+ * @param context 转换上下文
+ */
 export function injectProp(
   node: VNodeCall | RenderSlotCall,
   prop: Property,
@@ -472,7 +641,12 @@ export function injectProp(
   }
 }
 
-// check existing key to avoid overriding user provided keys
+/**
+ * 检查属性是否已存在于对象表达式中，避免覆盖用户提供的键
+ * @param prop 要检查的属性
+ * @param props 对象表达式
+ * @returns 如果属性已存在则返回true，否则返回false
+ */
 function hasProp(prop: Property, props: ObjectExpression) {
   let result = false
   if (prop.key.type === NodeTypes.SIMPLE_EXPRESSION) {
@@ -486,6 +660,12 @@ function hasProp(prop: Property, props: ObjectExpression) {
   return result
 }
 
+/**
+ * 将名称转换为有效的资源ID
+ * @param name 资源名称
+ * @param type 资源类型，可以是'component'、'directive'或'filter'
+ * @returns 有效的资源ID字符串
+ */
 export function toValidAssetId(
   name: string,
   type: 'component' | 'directive' | 'filter',
@@ -496,7 +676,12 @@ export function toValidAssetId(
   })}`
 }
 
-// Check if a node contains expressions that reference current context scope ids
+/**
+ * 检查节点是否包含引用当前上下文作用域ID的表达式
+ * @param node 要检查的节点，可以是模板子节点、条件分支节点、表达式节点等
+ * @param ids 转换上下文中的标识符
+ * @returns 如果节点包含引用则返回true，否则返回false
+ */
 export function hasScopeRef(
   node:
     | TemplateChildNode
@@ -557,6 +742,11 @@ export function hasScopeRef(
   }
 }
 
+/**
+ * 获取带有记忆化的VNode调用
+ * @param node 块代码生成节点或记忆化表达式
+ * @returns VNode调用或渲染插槽调用
+ */
 export function getMemoedVNodeCall(
   node: BlockCodegenNode | MemoExpression,
 ): VNodeCall | RenderSlotCall {
@@ -567,4 +757,9 @@ export function getMemoedVNodeCall(
   }
 }
 
+/**
+ * 用于匹配v-for指令中别名和迭代对象的正则表达式
+ * 捕获组1: 别名部分
+ * 捕获组2: 迭代对象部分
+ */
 export const forAliasRE: RegExp = /([\s\S]*?)\s+(?:in|of)\s+(\S[\s\S]*)/

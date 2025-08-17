@@ -1,3 +1,13 @@
+/**
+ * Vue编译器核心 - 转换模块
+ * 负责将解析生成的AST(抽象语法树)转换为可执行的JavaScript代码
+ * 主要功能包括：
+ * - 节点转换(NodeTransform)
+ * - 指令转换(DirectiveTransform)
+ * - 静态节点提升
+ * - 辅助函数处理
+ * - 作用域管理
+ */
 import type { TransformOptions } from './options'
 import {
   type ArrayExpression,
@@ -42,17 +52,29 @@ import type { CompilerCompatOptions } from './compat/compatConfig'
 
 // There are two types of transforms:
 //
-// - NodeTransform:
-//   Transforms that operate directly on a ChildNode. NodeTransforms may mutate,
-//   replace or remove the node being processed.
+/**
+ * 节点转换函数类型
+ * 直接操作AST节点的转换函数
+ * 可以修改、替换或删除正在处理的节点
+ * @param node - 要处理的AST节点
+ * @param context - 转换上下文
+ * @returns 可选的清理函数或清理函数数组
+ */
 export type NodeTransform = (
   node: RootNode | TemplateChildNode,
   context: TransformContext,
 ) => void | (() => void) | (() => void)[]
 
-// - DirectiveTransform:
-//   Transforms that handles a single directive attribute on an element.
-//   It translates the raw directive into actual props for the VNode.
+/**
+ * 指令转换函数类型
+ * 处理元素上的单个指令属性
+ * 将原始指令转换为VNode的实际属性
+ * @param dir - 指令节点
+ * @param node - 包含指令的元素节点
+ * @param context - 转换上下文
+ * @param augmentor - 可选的增强器函数，用于增强转换结果
+ * @returns 指令转换结果
+ */
 export type DirectiveTransform = (
   dir: DirectiveNode,
   node: ElementNode,
@@ -62,67 +84,173 @@ export type DirectiveTransform = (
   augmentor?: (ret: DirectiveTransformResult) => DirectiveTransformResult,
 ) => DirectiveTransformResult
 
+/**
+ * 指令转换结果接口
+ * 包含指令转换后的属性和其他相关信息
+ */
 export interface DirectiveTransformResult {
+  /** 转换后的属性数组 */
   props: Property[]
+  /** 是否需要运行时支持 */
   needRuntime?: boolean | symbol
+  /** SSR环境下的标签部分 */
   ssrTagParts?: TemplateLiteral['elements']
 }
 
-// A structural directive transform is technically also a NodeTransform;
-// Only v-if and v-for fall into this category.
+/**
+ * 结构型指令转换函数类型
+ * 技术上也是一种NodeTransform，但专门用于处理结构型指令
+ * 只有v-if和v-for属于这一类别
+ * @param node - 包含结构型指令的元素节点
+ * @param dir - 结构型指令节点
+ * @param context - 转换上下文
+ * @returns 可选的清理函数
+ */
 export type StructuralDirectiveTransform = (
   node: ElementNode,
   dir: DirectiveNode,
   context: TransformContext,
 ) => void | (() => void)
 
+/**
+ * 导入项接口
+ * 表示需要导入的模块或表达式
+ */
 export interface ImportItem {
+  /** 导入的表达式或标识符 */
   exp: string | ExpressionNode
+  /** 模块路径 */
   path: string
 }
 
+/**
+ * 转换上下文接口
+ * 包含转换过程中所需的所有配置、状态和辅助方法
+ * 继承自TransformOptions(移除了CompilerCompatOptions的部分)和CompilerCompatOptions
+ */
 export interface TransformContext
   extends Required<Omit<TransformOptions, keyof CompilerCompatOptions>>,
     CompilerCompatOptions {
+  /** 组件自身名称，如果是单文件组件则为null */
   selfName: string | null
+  /** 模板的根节点 */
   root: RootNode
+  /** 辅助函数映射表，记录已使用的辅助函数及其引用计数 */
   helpers: Map<symbol, number>
+  /** 组件集合，存储模板中使用的所有组件名称 */
   components: Set<string>
+  /** 指令集合，存储模板中使用的所有指令名称 */
   directives: Set<string>
+  /** 提升的节点数组，存储需要提升到渲染函数外部的节点 */
   hoists: (JSChildNode | null)[]
+  /** 导入项数组，存储需要导入的模块或表达式 */
   imports: ImportItem[]
+  /** 临时变量计数器，用于生成唯一的临时变量名 */
   temps: number
+  /** 缓存表达式数组，存储已缓存的表达式 */
   cached: (CacheExpression | null)[]
+  /** 标识符映射，记录作用域内的标识符及其引用计数 */
   identifiers: { [name: string]: number | undefined }
+  /** 作用域计数器对象 */
   scopes: {
+    /** v-for指令的嵌套层级计数 */
     vFor: number
+    /** v-slot指令的嵌套层级计数 */
     vSlot: number
+    /** v-pre指令的嵌套层级计数 */
     vPre: number
+    /** v-once指令的嵌套层级计数 */
     vOnce: number
   }
+  /** 当前节点的父节点 */
   parent: ParentNode | null
-  // we could use a stack but in practice we've only ever needed two layers up
-  // so this is more efficient
+  // 我们可以使用栈，但实际上我们只需要向上两层
+  // 所以这更高效
+  /** 当前节点的祖父节点 */
   grandParent: ParentNode | null
+  /** 当前节点在父节点子数组中的索引 */
   childIndex: number
+  /** 当前正在处理的节点 */
   currentNode: RootNode | TemplateChildNode | null
+  /** 是否在v-once指令作用域内 */
   inVOnce: boolean
+  /**
+   * 获取辅助函数
+   * @param name 辅助函数名称
+   * @returns 辅助函数符号
+   */
   helper<T extends symbol>(name: T): T
+  /**
+   * 移除辅助函数
+   * @param name 辅助函数名称
+   */
   removeHelper<T extends symbol>(name: T): void
+  /**
+   * 获取辅助函数的字符串形式
+   * @param name 辅助函数名称
+   * @returns 辅助函数的字符串表示
+   */
   helperString(name: symbol): string
+  /**
+   * 替换节点
+   * @param node 新节点
+   */
   replaceNode(node: TemplateChildNode): void
+  /**
+   * 移除节点
+   * @param node 要移除的节点（可选，默认为当前节点）
+   */
   removeNode(node?: TemplateChildNode): void
+  /**
+   * 节点被移除时的回调
+   */
   onNodeRemoved(): void
+  /**
+   * 添加标识符到当前作用域
+   * @param exp 表达式或字符串
+   */
   addIdentifiers(exp: ExpressionNode | string): void
+  /**
+   * 从当前作用域移除标识符
+   * @param exp 表达式或字符串
+   */
   removeIdentifiers(exp: ExpressionNode | string): void
+  /**
+   * 提升表达式到渲染函数外部
+   * @param exp 要提升的表达式
+   * @returns 提升后的简单表达式节点
+   */
   hoist(exp: string | JSChildNode | ArrayExpression): SimpleExpressionNode
+  /**
+   * 缓存表达式
+   * @param exp 要缓存的表达式
+   * @param isVNode 是否为VNode
+   * @param inVOnce 是否在v-once作用域内
+   * @returns 缓存表达式
+   */
   cache(exp: JSChildNode, isVNode?: boolean, inVOnce?: boolean): CacheExpression
+  /**
+   * 常量缓存映射表
+   * 存储模板子节点到常量类型的映射
+   */
   constantCache: WeakMap<TemplateChildNode, ConstantTypes>
 
+  /**
+   * 过滤器集合
+   * 存储模板中使用的所有过滤器名称
+   * 仅用于2.x兼容性
+   */
   // 2.x Compat only
   filters?: Set<string>
 }
 
+/**
+ * 创建转换上下文
+ * 初始化转换过程中所需的所有配置、状态和辅助方法
+ * @param root 模板的根节点
+ * @param options 转换选项
+ * @returns 转换上下文对象
+ */
 export function createTransformContext(
   root: RootNode,
   {
@@ -328,6 +456,12 @@ export function createTransformContext(
   return context
 }
 
+/**
+ * 转换模板AST
+ * 对模板根节点执行转换操作，包括节点转换、静态提升、代码生成等
+ * @param root 模板的根节点
+ * @param options 转换选项
+ */
 export function transform(root: RootNode, options: TransformOptions): void {
   const context = createTransformContext(root, options)
   traverseNode(root, context)
@@ -352,6 +486,12 @@ export function transform(root: RootNode, options: TransformOptions): void {
   }
 }
 
+/**
+ * 创建根节点的代码生成节点
+ * 处理根节点的代码生成逻辑，特别是对于单元素根节点的优化
+ * @param root 模板的根节点
+ * @param context 转换上下文
+ */
 function createRootCodegen(root: RootNode, context: TransformContext) {
   const { helper } = context
   const { children } = root
@@ -400,6 +540,12 @@ function createRootCodegen(root: RootNode, context: TransformContext) {
   }
 }
 
+/**
+ * 遍历父节点的子节点
+ * 递归遍历并处理父节点的所有子节点
+ * @param parent 父节点
+ * @param context 转换上下文
+ */
 export function traverseChildren(
   parent: ParentNode,
   context: TransformContext,
@@ -419,6 +565,12 @@ export function traverseChildren(
   }
 }
 
+/**
+ * 遍历单个节点
+ * 处理单个节点及其子节点，应用节点转换插件
+ * @param node 要遍历的节点
+ * @param context 转换上下文
+ */
 export function traverseNode(
   node: RootNode | TemplateChildNode,
   context: TransformContext,
@@ -482,6 +634,13 @@ export function traverseNode(
   }
 }
 
+/**
+ * 创建结构型指令转换函数
+ * 用于创建处理特定结构型指令(如v-if, v-for)的转换函数
+ * @param name 指令名称或匹配指令名称的正则表达式
+ * @param fn 结构型指令转换函数
+ * @returns 节点转换函数
+ */
 export function createStructuralDirectiveTransform(
   name: string | RegExp,
   fn: StructuralDirectiveTransform,

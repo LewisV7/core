@@ -1,4 +1,10 @@
 /**
+ * Vue 编译器核心分词器
+ * 负责将模板字符串解析为标记流(tokens)，是Vue模板编译的第一步
+ * 基于htmlparser2实现，支持HTML标签、属性、指令、插值等的解析
+ * 处理各种解析状态，如文本、标签、属性、注释、CDATA等
+ */
+/**
  * This Tokenizer is adapted from htmlparser2 under the MIT License listed at
  * https://github.com/fb55/htmlparser2/blob/master/LICENSE
 
@@ -233,6 +239,11 @@ export const Sequences: {
   ]), // `</textarea
 }
 
+/**
+ * 分词器类
+ * 负责将模板字符串转换为标记流(tokens)
+ * 处理各种解析状态，如文本、标签、属性、注释等
+ */
 export default class Tokenizer {
   /** The current state the tokenizer is in. */
   public state: State = State.Text
@@ -252,6 +263,14 @@ export default class Tokenizer {
   public inXML = false
   /** For disabling interpolation parsing in v-pre */
   public inVPre = false
+
+  /**
+   * 检查当前是否在pre标签内
+   * @returns 如果当前解析上下文在pre标签内则返回true，否则返回false
+   */
+  private isInPreTag(): boolean {
+    return this.inVPre
+  }
   /** Record newline positions for fast line / column calculation */
   private newlines: number[] = []
 
@@ -262,6 +281,11 @@ export default class Tokenizer {
     return this.mode === ParseMode.SFC && this.stack.length === 0
   }
 
+  /**
+   * 构造函数
+   * @param stack - 元素节点栈，用于跟踪嵌套的HTML元素
+   * @param cbs - 回调函数对象，用于处理各种解析事件
+   */
   constructor(
     private readonly stack: ElementNode[],
     private readonly cbs: Callbacks,
@@ -273,6 +297,10 @@ export default class Tokenizer {
     }
   }
 
+  /**
+   * 重置分词器状态
+   * 清空缓冲区、重置索引和状态，准备新的解析任务
+   */
   public reset(): void {
     this.state = State.Text
     this.mode = ParseMode.BASE
@@ -293,6 +321,11 @@ export default class Tokenizer {
    * processed index, so all the newlines up to this index should have been
    * recorded.
    */
+  /**
+   * 获取指定索引位置的行号和列号信息
+   * @param index - 字符索引
+   * @returns 包含行号、列号和偏移量的位置对象
+   */
   public getPos(index: number): Position {
     let line = 1
     let column = index + 1
@@ -311,10 +344,31 @@ export default class Tokenizer {
     }
   }
 
+  /**
+   * 查看下一个字符的ASCII码，但不移动索引
+   * @returns 下一个字符的ASCII码，如果到达缓冲区末尾则返回-1
+   */
   private peek() {
     return this.buffer.charCodeAt(this.index + 1)
   }
 
+  /**
+   * 获取剩余字符数量
+   * 计算当前位置到缓冲区末尾的字符数
+   * @returns 剩余字符数量
+   */
+  private remainingCharsLeft(): number {
+    return this.buffer.length - this.index
+  }
+
+  /**
+   * 处理文本状态
+   * 遍历文本字符，检测特殊字符和边界条件
+   * @param c - 当前字符的ASCII码
+   * - 遇到 `<` 进入标签开始状态
+   * - 遇到 `{{` 进入插值开始状态
+   * - 遇到文本结束时调用回调函数
+   */
   private stateText(c: number): void {
     if (c === CharCodes.Lt) {
       if (this.index > this.sectionStart) {
@@ -335,6 +389,12 @@ export default class Tokenizer {
   public delimiterClose: Uint8Array = defaultDelimitersClose
   private delimiterIndex = -1
 
+  /**
+   * 处理插值开始状态
+   * 当遇到 `{{` 语法时进入此状态
+   * 检查下一个字符，确定是否为有效的插值表达式
+   * @param c - 当前字符的ASCII码
+   */
   private stateInterpolationOpen(c: number): void {
     if (c === this.delimiterOpen[this.delimiterIndex]) {
       if (this.delimiterIndex === this.delimiterOpen.length - 1) {
@@ -406,6 +466,12 @@ export default class Tokenizer {
   }
 
   /** Look for an end tag. For <title> and <textarea>, also decode entities. */
+  /**
+   * 处理RCDATA状态
+   * 在RCDATA元素(如textarea、title等)内的文本处理
+   * 查找结束标签，并在遇到时切换状态
+   * @param c - 当前字符的ASCII码
+   */
   private stateInRCDATA(c: number): void {
     if (this.sequenceIndex === this.currentSequence.length) {
       if (c === CharCodes.Gt || isWhitespace(c)) {
@@ -454,6 +520,12 @@ export default class Tokenizer {
     }
   }
 
+  /**
+   * 处理CDATA序列状态
+   * 用于识别和处理CDATA区域的结束序列 ']]>'
+   * 当完整匹配到时，调用回调函数并切换状态
+   * @param c - 当前字符的ASCII码
+   */
   private stateCDATASequence(c: number): void {
     if (c === Sequences.Cdata[this.sequenceIndex]) {
       if (++this.sequenceIndex === Sequences.Cdata.length) {
@@ -474,6 +546,12 @@ export default class Tokenizer {
    * by skipping through the buffer until we find it.
    *
    * @returns Whether the character was found.
+   */
+  /**
+   * 快速前进到指定字符
+   * 向前搜索直到找到指定的字符或到达缓冲区末尾
+   * @param c - 要查找的字符的ASCII码
+   * @returns 如果找到字符则返回true并将索引定位到该字符，否则返回false
    */
   private fastForwardTo(c: number): boolean {
     while (++this.index < this.buffer.length) {
@@ -504,6 +582,12 @@ export default class Tokenizer {
    * - Their end sequences have a distinct character they start with.
    * - That character is then repeated, so we have to check multiple repeats.
    * - All characters but the start character of the sequence can be skipped.
+   */
+  /**
+   * 处理注释类状态
+   * 用于识别和处理注释和CDATA区域
+   * 查找结束序列 '-->' 或 ']]>'，并在遇到时调用相应的回调函数
+   * @param c - 当前字符的ASCII码
    */
   private stateInCommentLike(c: number): void {
     if (c === this.currentSequence[this.sequenceIndex]) {
@@ -591,6 +675,11 @@ export default class Tokenizer {
       this.handleTagName(c)
     }
   }
+  /**
+   * 处理标签名称
+   * 收集标签字符，直到遇到非标签名称字符
+   * @param c - 当前字符的ASCII码
+   */
   private handleTagName(c: number) {
     this.cbs.onopentagname(this.sectionStart, this.index)
     this.sectionStart = -1
@@ -629,6 +718,12 @@ export default class Tokenizer {
       this.sectionStart = this.index + 1
     }
   }
+  /**
+   * 处理属性名前状态
+   * 在标签开始和属性名之间的过渡状态
+   * 跳过空白字符，遇到属性名开始字符时进入属性名状态
+   * @param c - 当前字符的ASCII码
+   */
   private stateBeforeAttrName(c: number): void {
     if (c === CharCodes.Gt) {
       this.cbs.onopentagend(this.index)
@@ -660,6 +755,12 @@ export default class Tokenizer {
       this.handleAttrStart(c)
     }
   }
+  /**
+   * 处理属性开始
+   * 当在标签内遇到属性时进入此方法
+   * 初始化属性相关状态和缓冲区
+   * @param c - 当前字符的ASCII码
+   */
   private handleAttrStart(c: number) {
     if (c === CharCodes.LowerV && this.peek() === CharCodes.Dash) {
       this.state = State.InDirName
@@ -689,6 +790,12 @@ export default class Tokenizer {
       this.stateBeforeAttrName(c)
     }
   }
+  /**
+   * 处理属性名称状态
+   * 收集属性名称字符，直到遇到等号或空格
+   * 完成属性名称收集后，进入属性值前状态
+   * @param c - 当前字符的ASCII码
+   */
   private stateInAttrName(c: number): void {
     if (c === CharCodes.Eq || isEndOfTagSection(c)) {
       this.cbs.onattribname(this.sectionStart, this.index)
@@ -799,6 +906,13 @@ export default class Tokenizer {
       this.startEntity()
     }
   }
+  /**
+   * 处理双引号属性值状态
+   * 收集双引号内的属性值字符
+   * - 遇到 `"` 结束属性值收集
+   * - 支持实体字符解析
+   * @param c - 当前字符的ASCII码
+   */
   private stateInAttrValueDoubleQuotes(c: number): void {
     this.handleInAttrValue(c, CharCodes.DoubleQuote)
   }
@@ -924,6 +1038,11 @@ export default class Tokenizer {
    * Iterates through the buffer, calling the function corresponding to the current state.
    *
    * States that are more likely to be hit are higher up, as a performance improvement.
+   */
+  /**
+   * 解析输入的模板字符串
+   * 核心方法，遍历字符串并根据当前状态调用相应的处理函数
+   * @param input - 要解析的模板字符串
    */
   public parse(input: string): void {
     this.buffer = input
@@ -1111,6 +1230,11 @@ export default class Tokenizer {
   }
 
   /** Handle any trailing data. */
+  /**
+   * 处理尾随数据
+   * 在解析完成后处理剩余的文本数据
+   * 如果有未处理的文本，调用文本回调函数
+   */
   private handleTrailingData() {
     const endIndex = this.buffer.length
 
