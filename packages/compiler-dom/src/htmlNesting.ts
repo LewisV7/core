@@ -1,14 +1,17 @@
 /**
- * Copied from https://github.com/MananTank/validate-html-nesting
- * with ISC license
+ * HTML嵌套验证模块
+ * 此模块用于验证HTML元素的嵌套关系是否有效
  *
- * To avoid runtime dependency on validate-html-nesting
- * This file should not change very often in the original repo
- * but we may need to keep it up-to-date from time to time.
+ * 复制自 https://github.com/MananTank/validate-html-nesting，使用ISC许可证
+ * 为避免运行时依赖 validate-html-nesting 库而复制此代码
+ * 原始仓库中的此文件不应经常更改，但我们可能需要不时更新它
  */
 
 /**
- * returns true if given parent-child nesting is valid HTML
+ * 检查给定的父子元素嵌套是否是有效的HTML
+ * @param {string} parent - 父元素标签名
+ * @param {string} child - 子元素标签名
+ * @returns {boolean} 如果嵌套有效则返回true，否则返回false
  */
 export function isValidHTMLNesting(parent: string, child: string): boolean {
   // if the parent is a template, it can have any child
@@ -43,11 +46,15 @@ export function isValidHTMLNesting(parent: string, child: string): boolean {
   return true
 }
 
+// 所有标题标签集合
 const headings = new Set(['h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
+// 空集合，用于表示没有有效子元素或父元素的情况
 const emptySet = new Set([])
 
 /**
- * maps element to set of elements that can be it's children, no other */
+ * 映射元素到其唯一有效的子元素集合
+ * 只有在此集合中的元素才能作为该元素的子元素
+ */
 const onlyValidChildren: Record<string, Set<string>> = {
   head: new Set([
     'base',
@@ -80,7 +87,10 @@ const onlyValidChildren: Record<string, Set<string>> = {
   title: emptySet,
 }
 
-/** maps elements to set of elements which can be it's parent, no other */
+/**
+ * 映射元素到其唯一有效的父元素集合
+ * 只有在此集合中的元素才能作为该元素的父元素
+ */
 const onlyValidParents: Record<string, Set<string>> = {
   // sections
   html: emptySet,
@@ -106,7 +116,10 @@ const onlyValidParents: Record<string, Set<string>> = {
   area: new Set(['map']),
 } as const
 
-/** maps element to set of elements that can not be it's children, others can */
+/**
+ * 映射元素到其无效的子元素集合
+ * 在此集合中的元素不能作为该元素的子元素
+ */
 const knownInvalidChildren: Record<string, Set<string>> = {
   p: new Set([
     'address',
@@ -183,7 +196,10 @@ const knownInvalidChildren: Record<string, Set<string>> = {
   ]),
 } as const
 
-/** maps element to set of elements that can not be it's parent, others can */
+/**
+ * 映射元素到其无效的父元素集合
+ * 在此集合中的元素不能作为该元素的父元素
+ */
 const knownInvalidParents: Record<string, Set<string>> = {
   a: new Set(['a']),
   button: new Set(['button']),
