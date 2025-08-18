@@ -1,3 +1,7 @@
+/**
+ * 文本转换模块
+ * 此模块负责合并相邻的文本节点和表达式，并将它们转换为 createTextVNode 调用
+ */
 import type { NodeTransform } from '../transform'
 import {
   type CallExpression,
@@ -13,17 +17,25 @@ import { CREATE_TEXT } from '../runtimeHelpers'
 import { PatchFlagNames, PatchFlags } from '@vue/shared'
 import { getConstantType } from './cacheStatic'
 
-// Merge adjacent text nodes and expressions into a single expression
-// e.g. <div>abc {{ d }} {{ e }}</div> should have a single expression node as child.
+/**
+ * 转换文本节点和表达式
+ * 合并相邻的文本节点和表达式为单个表达式，并将文本节点转换为 createTextVNode 调用
+ * @param {Node} node - 要转换的 AST 节点
+ * @param {TransformContext} context - 转换上下文
+ * @returns {Function|void} 节点退出时执行的函数或无返回值
+ *
+ * 示例：
+ * <div>abc {{ d }} {{ e }}</div> 会被转换为一个单一的表达式节点作为子节点
+ */
 export const transformText: NodeTransform = (node, context) => {
+  // 仅处理根节点、元素节点、for节点和if分支节点
   if (
     node.type === NodeTypes.ROOT ||
     node.type === NodeTypes.ELEMENT ||
     node.type === NodeTypes.FOR ||
     node.type === NodeTypes.IF_BRANCH
   ) {
-    // perform the transform on node exit so that all expressions have already
-    // been processed.
+    // 在节点退出时执行转换，确保所有表达式都已被处理
     return () => {
       const children = node.children
       let currentContainer: CompoundExpressionNode | undefined = undefined
@@ -54,36 +66,28 @@ export const transformText: NodeTransform = (node, context) => {
         }
       }
 
-      if (
-        !hasText ||
-        // if this is a plain element with a single text child, leave it
-        // as-is since the runtime has dedicated fast path for this by directly
-        // setting textContent of the element.
-        // for component root it's always normalized anyway.
+      // 如果没有文本节点，或者是只有一个文本子节点的普通元素，则不进行转换
+      // 运行时对这种情况有专门的优化路径，直接设置元素的textContent
+      if (!hasText ||
         (children.length === 1 &&
           (node.type === NodeTypes.ROOT ||
             (node.type === NodeTypes.ELEMENT &&
               node.tagType === ElementTypes.ELEMENT &&
               // #3756
-              // custom directives can potentially add DOM elements arbitrarily,
-              // we need to avoid setting textContent of the element at runtime
-              // to avoid accidentally overwriting the DOM elements added
-              // by the user through custom directives.
+              // 自定义指令可能会任意添加DOM元素，我们需要避免在运行时设置元素的textContent
+              // 以防止意外覆盖用户通过自定义指令添加的DOM元素
               !node.props.find(
                 p =>
                   p.type === NodeTypes.DIRECTIVE &&
                   !context.directiveTransforms[p.name],
               ) &&
-              // in compat mode, <template> tags with no special directives
-              // will be rendered as a fragment so its children must be
-              // converted into vnodes.
+              // 在兼容模式下，没有特殊指令的<template>标签将被渲染为片段，因此其子节点必须转换为vnodes
               !(__COMPAT__ && node.tag === 'template'))))
       ) {
         return
       }
 
-      // pre-convert text nodes into createTextVNode(text) calls to avoid
-      // runtime normalization.
+      // 预先将文本节点转换为 createTextVNode(text) 调用，以避免运行时归一化
       for (let i = 0; i < children.length; i++) {
         const child = children[i]
         if (isText(child) || child.type === NodeTypes.COMPOUND_EXPRESSION) {

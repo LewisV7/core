@@ -1,12 +1,14 @@
-// - Parse expressions in templates into compound expressions so that each
-//   identifier gets more accurate source-map locations.
-//
-// - Prefix identifiers with `_ctx.` or `$xxx` (for known binding types) so that
-//   they are accessed from the right source
-//
-// - This transform is only applied in non-browser builds because it relies on
-//   an additional JavaScript parser. In the browser, there is no source-map
-//   support and the code is wrapped in `with (this) { ... }`.
+/**
+ * 表达式转换模块
+ * -
+ * - 将模板中的表达式解析为复合表达式，使每个标识符获得更准确的源映射位置
+ * -
+ * - 为标识符添加 `_ctx.` 或 `$xxx` 前缀（针对已知的绑定类型），
+ *   以便从正确的源访问它们
+ * -
+ * - 此转换仅在非浏览器构建中应用，因为它依赖于额外的 JavaScript 解析器
+ *   在浏览器中，没有源映射支持，代码被包装在 `with (this) { ... }` 中
+ */
 import type { NodeTransform, TransformContext } from '../transform'
 import {
   type CompoundExpressionNode,
@@ -44,8 +46,17 @@ import { parseExpression } from '@babel/parser'
 import { IS_REF, UNREF } from '../runtimeHelpers'
 import { BindingTypes } from '../options'
 
+/**
+ * 白名单字面量集合，这些值不需要添加前缀
+ */
 const isLiteralWhitelisted = /*@__PURE__*/ makeMap('true,false,null,this')
 
+/**
+ * 转换模板中的表达式节点
+ * @param {Node} node - 要转换的 AST 节点
+ * @param {TransformContext} context - 转换上下文
+ * @returns {void} 无返回值，直接修改节点
+ */
 export const transformExpression: NodeTransform = (node, context) => {
   if (node.type === NodeTypes.INTERPOLATION) {
     node.content = processExpression(
@@ -101,6 +112,15 @@ interface PrefixMeta {
 // Important: since this function uses Node.js only dependencies, it should
 // always be used with a leading !__BROWSER__ check so that it can be
 // tree-shaken from the browser build.
+/**
+ * 处理单个表达式
+ * @param {SimpleExpressionNode} node - 简单表达式节点
+ * @param {TransformContext} context - 转换上下文
+ * @param {boolean} [asParams=false] - 是否作为函数参数处理
+ * @param {boolean} [asRawStatements=false] - 是否作为原始语句处理
+ * @param {Record<string, number>} [localVars=context.identifiers] - 局部变量
+ * @returns {ExpressionNode} 处理后的表达式节点
+ */
 export function processExpression(
   node: SimpleExpressionNode,
   context: TransformContext,
@@ -389,6 +409,11 @@ export function processExpression(
   return ret
 }
 
+/**
+ * 检查标识符是否需要添加前缀
+ * @param {Identifier} id - 标识符节点
+ * @returns {boolean} 是否需要添加前缀
+ */
 function canPrefix(id: Identifier) {
   // skip whitelisted globals
   if (isGloballyAllowed(id.name)) {
@@ -401,6 +426,11 @@ function canPrefix(id: Identifier) {
   return true
 }
 
+/**
+ * 将表达式节点转换为字符串
+ * @param {ExpressionNode | string} exp - 表达式节点或字符串
+ * @returns {string} 转换后的字符串
+ */
 export function stringifyExpression(exp: ExpressionNode | string): string {
   if (isString(exp)) {
     return exp
@@ -413,6 +443,11 @@ export function stringifyExpression(exp: ExpressionNode | string): string {
   }
 }
 
+/**
+ * 检查绑定类型是否为常量
+ * @param {unknown} type - 绑定类型
+ * @returns {boolean} 是否为常量
+ */
 function isConst(type: unknown) {
   return (
     type === BindingTypes.SETUP_CONST || type === BindingTypes.LITERAL_CONST
