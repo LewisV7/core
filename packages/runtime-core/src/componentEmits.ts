@@ -1,3 +1,7 @@
+/**
+ * Vue 3 核心模块 - 组件事件发射系统
+ * 该模块负责处理组件事件的定义、验证和触发机制
+ */
 import {
   EMPTY_OBJ,
   type OverloadParameters,
@@ -33,13 +37,24 @@ import type { ComponentTypeEmits } from './apiSetupHelpers'
 import { getModelModifiers } from './helpers/useModel'
 import type { ComponentPublicInstance } from './componentPublicInstance'
 
+/**
+ * 对象形式的事件选项定义
+ * 键为事件名称，值为事件验证函数或 null
+ */
 export type ObjectEmitsOptions = Record<
   string,
   ((...args: any[]) => any) | null
 >
 
+/**
+ * 事件选项定义，可以是对象形式或字符串数组形式
+ */
 export type EmitsOptions = ObjectEmitsOptions | string[]
 
+/**
+ * 将事件选项转换为对应的 props 类型
+ * 根据事件选项生成对应的事件处理函数 props 类型
+ */
 export type EmitsToProps<T extends EmitsOptions | ComponentTypeEmits> =
   T extends string[]
     ? {
@@ -57,6 +72,10 @@ export type EmitsToProps<T extends EmitsOptions | ComponentTypeEmits> =
         }
       : {}
 
+/**
+ * 将类型化的 emits 转换为事件选项
+ * 用于将运行时 emits 类型转换为组件选项中的 emits 格式
+ */
 export type TypeEmitsToOptions<T extends ComponentTypeEmits> = {
   [K in keyof T & string]: T[K] extends [...args: infer Args]
     ? (...args: Args) => any
@@ -83,6 +102,10 @@ type IsStringLiteral<T> = T extends string
     : true
   : false
 
+/**
+ * 将简写形式的 emits 转换为对象形式
+ * 用于处理不同格式的 emits 定义
+ */
 export type ShortEmitsToObject<E> =
   E extends Record<string, any[]>
     ? {
@@ -90,6 +113,10 @@ export type ShortEmitsToObject<E> =
       }
     : E
 
+/**
+ * 事件发射函数类型
+ * 根据提供的事件选项自动推断事件名称和参数类型
+ */
 export type EmitFn<
   Options = ObjectEmitsOptions,
   Event extends keyof Options = keyof Options,
@@ -108,15 +135,24 @@ export type EmitFn<
           }[Event]
         >
 
+/**
+ * 触发组件事件
+ * @param instance 组件内部实例
+ * @param event 事件名称
+ * @param rawArgs 事件参数
+ * @returns 组件公共实例或 null 或 undefined
+ */
 export function emit(
   instance: ComponentInternalInstance,
   event: string,
   ...rawArgs: any[]
 ): ComponentPublicInstance | null | undefined {
-  if (instance.isUnmounted) return
+  // 如果组件已卸载，则不触发事件
+if (instance.isUnmounted) return
   const props = instance.vnode.props || EMPTY_OBJ
 
-  if (__DEV__) {
+  // 开发环境下的事件验证
+if (__DEV__) {
     const {
       emitsOptions,
       propsOptions: [propsOptions],
@@ -153,7 +189,8 @@ export function emit(
   let args = rawArgs
   const isCompatModelListener =
     __COMPAT__ && compatModelEventPrefix + event in props
-  const isModelListener = isCompatModelListener || event.startsWith('update:')
+  // 检查是否为模型更新事件
+const isModelListener = isCompatModelListener || event.startsWith('update:')
   const modifiers = isCompatModelListener
     ? props.modelModifiers
     : isModelListener && getModelModifiers(props, event.slice(7))
@@ -232,6 +269,14 @@ export function emit(
   }
 }
 
+/**
+ * 规范化组件的事件选项
+ * 处理混入、继承等情况，合并所有事件选项
+ * @param comp 组件定义
+ * @param appContext 应用上下文
+ * @param asMixin 是否作为混入处理
+ * @returns 规范化后的事件选项对象或 null
+ */
 export function normalizeEmitsOptions(
   comp: ConcreteComponent,
   appContext: AppContext,
@@ -289,11 +334,18 @@ export function normalizeEmitsOptions(
 // Check if an incoming prop key is a declared emit event listener.
 // e.g. With `emits: { click: null }`, props named `onClick` and `onclick` are
 // both considered matched listeners.
+/**
+ * 检查传入的 prop 键是否为声明的事件监听器
+ * @param options 事件选项
+ * @param key 要检查的 prop 键
+ * @returns 是否为事件监听器
+ */
 export function isEmitListener(
   options: ObjectEmitsOptions | null,
   key: string,
 ): boolean {
-  if (!options || !isOn(key)) {
+  // 如果没有事件选项或键不是以 on 开头，则不是事件监听器
+if (!options || !isOn(key)) {
     return false
   }
 

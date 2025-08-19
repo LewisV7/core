@@ -75,16 +75,32 @@ export function installCompatInstanceProperties(
   }
 
   extend(map, {
+    /**
+     * Vue 2 中的 $set 方法
+     * @param target - 目标对象
+     * @param key - 属性键
+     * @param value - 属性值
+     */
     $set: i => {
       assertCompatEnabled(DeprecationTypes.INSTANCE_SET, i)
       return set
     },
 
+    /**
+     * Vue 2 中的 $delete 方法
+     * @param target - 目标对象
+     * @param key - 属性键
+     */
     $delete: i => {
       assertCompatEnabled(DeprecationTypes.INSTANCE_DELETE, i)
       return del
     },
 
+    /**
+     * Vue 2 中的 $mount 方法
+     * @param el - 挂载元素
+     * @returns 实例本身
+     */
     $mount: i => {
       assertCompatEnabled(
         DeprecationTypes.GLOBAL_MOUNT,
@@ -94,6 +110,10 @@ export function installCompatInstanceProperties(
       return i.ctx._compat_mount || NOOP
     },
 
+    /**
+     * Vue 2 中的 $destroy 方法
+     * 销毁实例
+     */
     $destroy: i => {
       assertCompatEnabled(DeprecationTypes.INSTANCE_DESTROY, i)
       // root destroy override from ./global.ts in installCompatMount
@@ -117,8 +137,26 @@ export function installCompatInstanceProperties(
       return __DEV__ ? shallowReadonly(i.slots) : i.slots
     },
 
+    /**
+     * Vue 2 中的 $on 方法
+     * @param event - 事件名称
+     * @param callback - 事件回调
+     * @returns 实例本身
+     */
     $on: i => on.bind(null, i),
+    /**
+     * Vue 2 中的 $once 方法
+     * @param event - 事件名称
+     * @param callback - 事件回调
+     * @returns 实例本身
+     */
     $once: i => once.bind(null, i),
+    /**
+     * Vue 2 中的 $off 方法
+     * @param event - 事件名称（可选）
+     * @param callback - 事件回调（可选）
+     * @returns 实例本身
+     */
     $off: i => off.bind(null, i),
 
     $children: getCompatChildren,
@@ -126,6 +164,12 @@ export function installCompatInstanceProperties(
 
     // inject additional properties into $options for compat
     // e.g. vuex needs this.$options.parent
+    /**
+     * Vue 2 兼容的 $options 属性
+     * 为兼容性注入额外属性（如 $options.parent）
+     * @param i - 组件实例
+     * @returns 选项对象
+     */
     $options: i => {
       if (!isCompatEnabled(DeprecationTypes.PRIVATE_APIS, i)) {
         return resolveMergedOptions(i)

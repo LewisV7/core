@@ -1,3 +1,8 @@
+/**
+ * Vue 3 核心模块 - Setup 辅助函数
+ * 此文件包含用于 `<script setup>` 语法的编译器宏和运行时辅助函数，
+ * 提供了声明属性、事件、暴露接口等功能。
+ */
 import {
   type IfAny,
   type LooseRequired,
@@ -32,6 +37,10 @@ import { warn } from './warning'
 import type { SlotsType, StrictUnwrapSlotsType } from './componentSlots'
 import type { Ref } from '@vue/reactivity'
 
+/**
+ * 开发环境下的运行时警告函数
+ * @param method - 被错误调用的方法名
+ */
 // dev only
 const warnRuntimeUsage = (method: string) =>
   warn(
@@ -73,6 +82,17 @@ const warnRuntimeUsage = (method: string) =>
  * output and should **not** be actually called at runtime.
  */
 // overload 1: runtime props w/ array
+/**
+ * Vue `<script setup>` 编译器宏，用于声明组件属性
+ * 期望的参数与组件的 `props` 选项相同
+ * @see {@link https://vuejs.org/api/sfc-script-setup.html#defineprops-defineemits}
+ * @remarks 仅在 `<script setup>` 中可用，会在输出中被编译移除，运行时调用无效
+ */
+// 重载 1: 运行时 props - 数组形式
+
+// 重载 2: 运行时 props - 对象形式
+
+// 重载 3: 基于类型的声明
 export function defineProps<PropNames extends string = string>(
   props: PropNames[],
 ): Prettify<Readonly<{ [key in PropNames]?: any }>>
@@ -86,6 +106,8 @@ export function defineProps<TypeProps>(): DefineProps<
   BooleanKey<TypeProps>
 >
 // implementation
+
+// 实现
 export function defineProps() {
   if (__DEV__) {
     warnRuntimeUsage(`defineProps`)
@@ -93,10 +115,20 @@ export function defineProps() {
   return null as any
 }
 
+/**
+ * 定义组件属性的类型
+ * @template T - 属性类型
+ * @template BKeys - 布尔类型的属性键
+ */
 export type DefineProps<T, BKeys extends keyof T> = Readonly<T> & {
   readonly [K in BKeys]-?: boolean
 }
 
+/**
+ * 提取类型中值为布尔类型的键
+ * @template T - 源类型
+ * @template K - 键类型
+ */
 type BooleanKey<T, K extends keyof T = keyof T> = K extends any
   ? [T[K]] extends [boolean | undefined]
     ? K
@@ -130,6 +162,12 @@ type BooleanKey<T, K extends keyof T = keyof T> = K extends any
  * @see {@link https://vuejs.org/api/sfc-script-setup.html#defineprops-defineemits}
  */
 // overload 1: runtime emits w/ array
+
+// 重载 1: 运行时 emits - 数组形式
+
+// 重载 2: 运行时 emits - 对象形式
+
+// 重载 3: 基于类型的声明
 export function defineEmits<EE extends string = string>(
   emitOptions: EE[],
 ): EmitFn<EE[]>
@@ -142,6 +180,8 @@ export function defineEmits<T extends ComponentTypeEmits>(): T extends (
   ? T
   : ShortEmits<T>
 // implementation
+
+// 实现
 export function defineEmits() {
   if (__DEV__) {
     warnRuntimeUsage(`defineEmits`)
@@ -149,10 +189,21 @@ export function defineEmits() {
   return null as any
 }
 
+/**
+ * 组件 emits 类型
+ */
 export type ComponentTypeEmits = ((...args: any[]) => any) | Record<string, any>
 
+/**
+ * 将记录类型转换为联合类型
+ * @template T - 记录类型
+ */
 type RecordToUnion<T extends Record<string, any>> = T[keyof T]
 
+/**
+ * 短格式 emits 类型
+ * @template T - 记录类型
+ */
 type ShortEmits<T extends Record<string, any>> = UnionToIntersection<
   RecordToUnion<{
     [K in keyof T]: (evt: K, ...args: T[K]) => void
@@ -173,6 +224,8 @@ type ShortEmits<T extends Record<string, any>> = UnionToIntersection<
  *
  * @see {@link https://vuejs.org/api/sfc-script-setup.html#defineexpose}
  */
+
+// 实现
 export function defineExpose<
   Exposed extends Record<string, any> = Record<string, any>,
 >(exposed?: Exposed): void {
@@ -188,6 +241,8 @@ export function defineExpose<
  *
  * @see {@link https://vuejs.org/api/sfc-script-setup.html#defineoptions}
  */
+
+// 实现
 export function defineOptions<
   RawBindings = {},
   D = {},
@@ -229,6 +284,12 @@ export function defineOptions<
   }
 }
 
+/**
+ * Vue `<script setup>` 编译器宏，用于声明组件的插槽
+ * @template S - 插槽类型
+ * @returns 插槽对象
+ * @remarks 仅在 `<script setup>` 中可用，会在输出中被编译移除，运行时调用无效
+ */
 export function defineSlots<
   S extends Record<string, any> = Record<string, any>,
 >(): StrictUnwrapSlotsType<SlotsType<S>> {
@@ -238,12 +299,25 @@ export function defineSlots<
   return null as any
 }
 
+/**
+ * 模型引用类型
+ * @template T - 原始类型
+ * @template M - 属性键类型
+ * @template G - getter 返回类型
+ * @template S - setter 参数类型
+ */
 export type ModelRef<T, M extends PropertyKey = string, G = T, S = T> = Ref<
   G,
   S
 > &
   [ModelRef<T, M, G, S>, Record<M, true | undefined>]
 
+/**
+ * defineModel 选项类型
+ * @template T - 原始类型
+ * @template G - getter 返回类型
+ * @template S - setter 参数类型
+ */
 export type DefineModelOptions<T = any, G = T, S = T> = {
   get?: (v: T) => G
   set?: (v: S) => any
@@ -282,6 +356,52 @@ export type DefineModelOptions<T = any, G = T, S = T> = {
  * const count = defineModel<number>('count', { default: 0 })
  * ```
  */
+
+// 重载 1: 带选项的默认模型
+/**
+ * 声明一个双向绑定属性
+ * @template T - 属性类型
+ * @template M - 属性键类型
+ * @template G - getter 返回类型
+ * @template S - setter 参数类型
+ * @param options - 模型选项
+ * @returns 模型引用
+ */
+
+// 重载 2: 可选的默认模型
+/**
+ * 声明一个双向绑定属性
+ * @template T - 属性类型
+ * @template M - 属性键类型
+ * @template G - getter 返回类型
+ * @template S - setter 参数类型
+ * @param options - 模型选项
+ * @returns 模型引用
+ */
+
+// 重载 3: 带名称和选项的必填模型
+/**
+ * 声明一个双向绑定属性
+ * @template T - 属性类型
+ * @template M - 属性键类型
+ * @template G - getter 返回类型
+ * @template S - setter 参数类型
+ * @param name - 属性名称
+ * @param options - 模型选项
+ * @returns 模型引用
+ */
+
+// 重载 4: 带名称的可选模型
+/**
+ * 声明一个双向绑定属性
+ * @template T - 属性类型
+ * @template M - 属性键类型
+ * @template G - getter 返回类型
+ * @template S - setter 参数类型
+ * @param name - 属性名称
+ * @param options - 模型选项
+ * @returns 模型引用
+ */
 export function defineModel<T, M extends PropertyKey = string, G = T, S = T>(
   options: ({ default: any } | { required: true }) &
     PropOptions<T> &
@@ -304,27 +424,56 @@ export function defineModel<T, M extends PropertyKey = string, G = T, S = T>(
   options?: PropOptions<T> & DefineModelOptions<T, G, S>,
 ): ModelRef<T | undefined, M, G | undefined, S | undefined>
 
+
+// 实现
 export function defineModel(): any {
   if (__DEV__) {
     warnRuntimeUsage('defineModel')
   }
 }
 
+/**
+ * 排除 undefined 类型
+ * @template T - 源类型
+ */
 type NotUndefined<T> = T extends undefined ? never : T
+/**
+ * 映射并省略指定键的类型
+ * @template T - 源类型
+ * @template K - 要省略的键
+ */
 type MappedOmit<T, K extends keyof any> = {
   [P in keyof T as P extends K ? never : P]: T[P]
 }
 
+/**
+ * 推断默认值类型
+ * @template T - 源类型
+ */
 type InferDefaults<T> = {
   [K in keyof T]?: InferDefault<T, T[K]>
 }
 
+/**
+ * JavaScript 原生类型
+ */
 type NativeType = null | number | string | boolean | symbol | Function
 
+/**
+ * 推断默认值的类型
+ * @template P - 属性类型
+ * @template T - 值类型
+ */
 type InferDefault<P, T> =
   | ((props: P) => T & {})
   | (T extends NativeType ? T : never)
 
+/**
+ * 带默认值的属性类型
+ * @template T - 原始属性类型
+ * @template Defaults - 默认值类型
+ * @template BKeys - 布尔类型的属性键
+ */
 type PropsWithDefaults<
   T,
   Defaults extends InferDefaults<T>,
@@ -367,6 +516,8 @@ type PropsWithDefaults<
  *
  * @see {@link https://vuejs.org/guide/typescript/composition-api.html#typing-component-props}
  */
+
+// 实现
 export function withDefaults<
   T,
   BKeys extends keyof T,
@@ -381,14 +532,27 @@ export function withDefaults<
   return null as any
 }
 
+/**
+ * 获取插槽上下文
+ * @returns 插槽对象
+ */
 export function useSlots(): SetupContext['slots'] {
   return getContext('useSlots').slots
 }
 
+/**
+ * 获取属性上下文
+ * @returns 属性对象
+ */
 export function useAttrs(): SetupContext['attrs'] {
   return getContext('useAttrs').attrs
 }
 
+/**
+ * 获取当前组件的上下文
+ * @param calledFunctionName - 调用此函数的函数名
+ * @returns 组件上下文
+ */
 function getContext(calledFunctionName: string): SetupContext {
   const i = getCurrentInstance()!
   if (__DEV__ && !i) {
@@ -400,6 +564,8 @@ function getContext(calledFunctionName: string): SetupContext {
 /**
  * @internal
  */
+
+// 实现
 export function normalizePropsOrEmits(
   props: ComponentPropsOptions | EmitsOptions,
 ): ComponentObjectPropsOptions | ObjectEmitsOptions {
@@ -416,6 +582,8 @@ export function normalizePropsOrEmits(
  * only.
  * @internal
  */
+
+// 实现
 export function mergeDefaults(
   raw: ComponentPropsOptions,
   defaults: Record<string, any>,
@@ -447,6 +615,8 @@ export function mergeDefaults(
  * Imported by compiled code only.
  * @internal
  */
+
+// 实现
 export function mergeModels(
   a: ComponentPropsOptions | EmitsOptions,
   b: ComponentPropsOptions | EmitsOptions,
@@ -461,6 +631,8 @@ export function mergeModels(
  * defineProps().
  * @internal
  */
+
+// 实现
 export function createPropsRestProxy(
   props: any,
   excludedKeys: string[],
@@ -495,6 +667,8 @@ export function createPropsRestProxy(
  * ```
  * @internal
  */
+
+// 实现
 export function withAsyncContext(getAwaitable: () => any): [any, () => void] {
   const ctx = getCurrentInstance()!
   if (__DEV__ && !ctx) {

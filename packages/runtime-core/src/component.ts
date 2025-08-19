@@ -1,3 +1,12 @@
+/**
+ * 用于提取组件实例类型的公共工具类型
+ * 适用于所有有效的组件定义类型
+ * @template T 组件类型
+ */
+/**
+ * Vue 3 核心模块 - 组件系统实现
+ * 包含组件实例创建、生命周期管理、状态设置、属性处理等核心功能
+ */
 import { type VNode, type VNodeChild, isVNode } from './vnode'
 import {
   EffectScope,
@@ -96,6 +105,9 @@ import { markAsyncBoundary } from './helpers/useId'
 import { isAsyncWrapper } from './apiAsyncComponent'
 import type { RendererElement } from './renderer'
 
+/**
+ * 数据对象类型
+ */
 export type Data = Record<string, unknown>
 
 /**
@@ -137,6 +149,9 @@ export type ComponentInstance<T> = T extends { new (): ComponentPublicInstance }
 /**
  * For extending allowed non-declared props on components in TSX
  */
+/**
+ * 用于在TSX中扩展组件允许的非声明props
+ */
 export interface ComponentCustomProps {}
 
 /**
@@ -147,6 +162,18 @@ export interface ComponentCustomProps {}
  * ```ts
  * import VTooltip from 'v-tooltip'
  *
+ * declare module '@vue/runtime-core' {
+ *   interface GlobalDirectives {
+ *     VTooltip
+ *   }
+ * }
+ * ```
+ */
+/**
+ * 用于全局定义的指令
+ * 示例：添加一个全局指令`VTooltip`
+ * ```ts
+ * import VTooltip from 'v-tooltip'
  * declare module '@vue/runtime-core' {
  *   interface GlobalDirectives {
  *     VTooltip
@@ -171,6 +198,18 @@ export interface GlobalDirectives {}
  * }
  * ```
  */
+/**
+ * 用于全局定义的组件
+ * 示例：添加一个全局组件`RouterView`
+ * ```ts
+ * import { RouterView } from 'vue-router'
+ * declare module '@vue/runtime-core' {
+ *   interface GlobalComponents {
+ *     RouterView
+ *   }
+ * }
+ * ```
+ */
 export interface GlobalComponents {
   Teleport: DefineComponent<TeleportProps>
   Suspense: DefineComponent<SuspenseProps>
@@ -181,6 +220,9 @@ export interface GlobalComponents {
 /**
  * Default allowed non-declared props on component in TSX
  */
+/**
+ * TSX中组件默认允许的非声明props
+ */
 export interface AllowedComponentProps {
   class?: unknown
   style?: unknown
@@ -188,6 +230,10 @@ export interface AllowedComponentProps {
 
 // Note: can't mark this whole interface internal because some public interfaces
 // extend it.
+/**
+ * 组件内部选项接口
+ * 注意：不能将整个接口标记为内部，因为一些公共接口扩展了它
+ */
 export interface ComponentInternalOptions {
   /**
    * @internal
@@ -215,6 +261,13 @@ export interface ComponentInternalOptions {
   __name?: string
 }
 
+/**
+ * 函数式组件接口
+ * @template P props类型
+ * @template E emits选项
+ * @template S slots类型
+ * @template EE 解析后的emits选项
+ */
 export interface FunctionalComponent<
   P = {},
   E extends EmitsOptions | Record<string, any[]> = {},
@@ -234,6 +287,9 @@ export interface FunctionalComponent<
   compatConfig?: CompatConfig
 }
 
+/**
+ * 类组件接口
+ */
 export interface ClassComponent {
   new (...args: any[]): ComponentPublicInstance<any, any, any, any, any>
   __vccOpts: ComponentOptions
@@ -244,6 +300,10 @@ export interface ClassComponent {
  * object, or a function. Use this where the code expects to work with actual
  * values, e.g. checking if its a function or not. This is mostly for internal
  * implementation code.
+ */
+/**
+ * 具体组件类型，匹配其实际值：要么是选项对象，要么是函数
+ * 用于代码期望处理实际值的地方，例如检查它是否是函数
  */
 export type ConcreteComponent<
   Props = {},
@@ -261,6 +321,10 @@ export type ConcreteComponent<
  * A type used in public APIs where a component type is expected.
  * The constructor type is an artificial type returned by defineComponent().
  */
+/**
+ * 公共API中期望组件类型的类型
+ * 构造函数类型是defineComponent()返回的人工类型
+ */
 export type Component<
   PropsOrInstance = any,
   RawBindings = any,
@@ -275,9 +339,18 @@ export type Component<
 
 export type { ComponentOptions }
 
+/**
+ * 生命周期钩子类型
+ * @template TFn 钩子函数类型
+ */
 export type LifecycleHook<TFn = Function> = (TFn & SchedulerJob)[] | null
 
 // use `E extends any` to force evaluating type to fix #2362
+/**
+ * setup函数上下文类型
+ * @template E emits选项类型
+ * @template S slots类型
+ */
 export type SetupContext<
   E = EmitsOptions,
   S extends SlotsType = {},
@@ -294,6 +367,9 @@ export type SetupContext<
 
 /**
  * @internal
+ */
+/**
+ * 内部渲染函数类型
  */
 export type InternalRenderFunction = {
   (
@@ -315,6 +391,10 @@ export type InternalRenderFunction = {
 /**
  * We expose a subset of properties on the internal instance as they are
  * useful for advanced external libraries and tools.
+ */
+/**
+ * 组件内部实例接口
+ * 暴露了内部实例的部分属性，对高级外部库和工具很有用
  */
 export interface ComponentInternalInstance {
   uid: number
@@ -600,10 +680,20 @@ export interface ComponentInternalInstance {
   resolvedOptions?: MergedComponentOptions
 }
 
+/**
+ * 空的应用上下文
+ */
 const emptyAppContext = createAppContext()
 
 let uid = 0
 
+/**
+ * 创建组件实例
+ * @param vnode 表示组件的虚拟节点
+ * @param parent 父组件实例
+ * @param suspense  suspense边界
+ * @returns 创建的组件实例
+ */
 export function createComponentInstance(
   vnode: VNode,
   parent: ComponentInternalInstance | null,
@@ -708,8 +798,15 @@ export function createComponentInstance(
   return instance
 }
 
+/**
+ * 当前组件实例
+ */
 export let currentInstance: ComponentInternalInstance | null = null
 
+/**
+ * 获取当前组件实例
+ * @returns 当前组件实例或null
+ */
 export const getCurrentInstance: () => ComponentInternalInstance | null = () =>
   currentInstance || currentRenderingInstance
 
@@ -763,6 +860,11 @@ if (__SSR__) {
   }
 }
 
+/**
+ * 设置当前组件实例
+ * @param instance 组件实例
+ * @returns 重置当前实例的函数
+ */
 export const setCurrentInstance = (instance: ComponentInternalInstance) => {
   const prev = currentInstance
   internalSetCurrentInstance(instance)
@@ -773,6 +875,9 @@ export const setCurrentInstance = (instance: ComponentInternalInstance) => {
   }
 }
 
+/**
+ * 取消设置当前组件实例
+ */
 export const unsetCurrentInstance = (): void => {
   currentInstance && currentInstance.scope.off()
   internalSetCurrentInstance(null)
@@ -780,6 +885,11 @@ export const unsetCurrentInstance = (): void => {
 
 const isBuiltInTag = /*@__PURE__*/ makeMap('slot,component')
 
+/**
+ * 验证组件名称
+ * @param name 组件名称
+ * @param config 应用配置
+ */
 export function validateComponentName(
   name: string,
   { isNativeTag }: AppConfig,
@@ -791,6 +901,11 @@ export function validateComponentName(
   }
 }
 
+/**
+ * 检查组件是否为有状态组件
+ * @param instance 组件实例
+ * @returns 组件是否为有状态组件的标志值
+ */
 export function isStatefulComponent(
   instance: ComponentInternalInstance,
 ): number {
@@ -799,6 +914,13 @@ export function isStatefulComponent(
 
 export let isInSSRComponentSetup = false
 
+/**
+ * 设置组件
+ * @param instance 组件实例
+ * @param isSSR 是否为SSR环境
+ * @param optimized 是否优化
+ * @returns 可能的Promise（如果有异步设置）
+ */
 export function setupComponent(
   instance: ComponentInternalInstance,
   isSSR = false,
@@ -819,6 +941,11 @@ export function setupComponent(
   return setupResult
 }
 
+/**
+ * 设置有状态组件
+ * @param instance 组件实例
+ * @param isSSR 是否为SSR环境
+ */
 function setupStatefulComponent(
   instance: ComponentInternalInstance,
   isSSR: boolean,
@@ -919,6 +1046,12 @@ function setupStatefulComponent(
   }
 }
 
+/**
+ * 处理setup函数的结果
+ * @param instance 组件实例
+ * @param setupResult setup函数的结果
+ * @param isSSR 是否为SSR环境
+ */
 export function handleSetupResult(
   instance: ComponentInternalInstance,
   setupResult: unknown,
@@ -971,6 +1104,10 @@ let installWithProxy: (i: ComponentInternalInstance) => void
  * For runtime-dom to register the compiler.
  * Note the exported method uses any to avoid d.ts relying on the compiler types.
  */
+/**
+ * 注册运行时编译器
+ * @param _compile 编译函数
+ */
 export function registerRuntimeCompiler(_compile: any): void {
   compile = _compile
   installWithProxy = i => {
@@ -981,8 +1118,18 @@ export function registerRuntimeCompiler(_compile: any): void {
 }
 
 // dev only
+/**
+ * 检查是否为仅运行时版本
+ * @returns 是否为仅运行时版本
+ */
 export const isRuntimeOnly = (): boolean => !compile
 
+/**
+ * 完成组件设置
+ * @param instance 组件实例
+ * @param isSSR 是否为SSR环境
+ * @param skipOptions 是否跳过选项处理
+ */
 export function finishComponentSetup(
   instance: ComponentInternalInstance,
   isSSR: boolean,
@@ -1122,6 +1269,11 @@ function getSlotsProxy(instance: ComponentInternalInstance): Slots {
   })
 }
 
+/**
+ * 创建setup上下文
+ * @param instance 组件实例
+ * @returns 创建的setup上下文
+ */
 export function createSetupContext(
   instance: ComponentInternalInstance,
 ): SetupContext {
@@ -1179,6 +1331,11 @@ export function createSetupContext(
   }
 }
 
+/**
+ * 获取组件公共实例
+ * @param instance 组件内部实例
+ * @returns 组件公共实例或暴露的属性
+ */
 export function getComponentPublicInstance(
   instance: ComponentInternalInstance,
 ): ComponentPublicInstance | ComponentInternalInstance['exposed'] | null {
@@ -1207,6 +1364,12 @@ const classifyRE = /(?:^|[-_])(\w)/g
 const classify = (str: string): string =>
   str.replace(classifyRE, c => c.toUpperCase()).replace(/[-_]/g, '')
 
+/**
+ * 获取组件名称
+ * @param Component 组件
+ * @param includeInferred 是否包含推断的名称
+ * @returns 组件名称或undefined
+ */
 export function getComponentName(
   Component: ConcreteComponent,
   includeInferred = true,
@@ -1216,6 +1379,13 @@ export function getComponentName(
     : Component.name || (includeInferred && Component.__name)
 }
 
+/**
+ * 格式化组件名称
+ * @param instance 组件实例
+ * @param Component 组件
+ * @param isRoot 是否为根组件
+ * @returns 格式化后的组件名称
+ */
 export function formatComponentName(
   instance: ComponentInternalInstance | null,
   Component: ConcreteComponent,
@@ -1248,10 +1418,18 @@ export function formatComponentName(
   return name ? classify(name) : isRoot ? `App` : `Anonymous`
 }
 
+/**
+ * 检查是否为类组件
+ * @param value 要检查的值
+ * @returns 是否为类组件
+ */
 export function isClassComponent(value: unknown): value is ClassComponent {
   return isFunction(value) && '__vccOpts' in value
 }
 
+/**
+ * 组件自定义元素接口
+ */
 export interface ComponentCustomElementInterface {
   /**
    * @internal

@@ -1,3 +1,7 @@
+/**
+ * Vue 3 核心模块 - 渲染器
+ * 负责将虚拟DOM (VNode) 转换为实际DOM元素，并处理DOM的更新、挂载和卸载
+ */
 import {
   Comment,
   Fragment,
@@ -88,27 +92,79 @@ import { DeprecationTypes } from './compat/compatConfig'
 import type { TransitionHooks } from './components/BaseTransition'
 import type { VueElement } from '@vue/runtime-dom'
 
+/**
+ * 渲染器接口
+ * 定义了渲染器的核心功能，包括渲染虚拟DOM和创建应用实例
+ * @template HostElement - 宿主元素类型
+ */
 export interface Renderer<HostElement = RendererElement> {
+  /**
+   * 根渲染函数
+   * 将虚拟DOM渲染到指定容器中
+   */
   render: RootRenderFunction<HostElement>
+  /**
+   * 创建应用实例的函数
+   * 返回一个可以挂载到DOM的应用实例
+   */
   createApp: CreateAppFunction<HostElement>
 }
 
+/**
+ *  hydration 渲染器接口
+ * 扩展了基本渲染器接口，添加了服务端渲染(SSR)的水合功能
+ */
 export interface HydrationRenderer extends Renderer<Element | ShadowRoot> {
+  /**
+   * 根水合函数
+   * 将服务端渲染的HTML转换为交互式的客户端DOM
+   */
   hydrate: RootHydrateFunction
 }
 
+/**
+ * 元素命名空间类型
+ * 用于指定DOM元素的XML命名空间
+ * @values 'svg' - SVG元素命名空间
+ * @values 'mathml' - MathML元素命名空间
+ * @values undefined - 默认HTML命名空间
+ */
 export type ElementNamespace = 'svg' | 'mathml' | undefined
 
+/**
+ * 根渲染函数类型
+ * 负责将虚拟DOM树渲染到指定的宿主元素容器中
+ * @template HostElement - 宿主元素类型
+ * @param vnode - 要渲染的虚拟DOM节点
+ * @param container - 渲染目标容器
+ * @param namespace - 元素命名空间
+ * @returns void
+ */
 export type RootRenderFunction<HostElement = RendererElement> = (
   vnode: VNode | null,
   container: HostElement,
   namespace?: ElementNamespace,
 ) => void
 
+/**
+ * 渲染器选项接口
+ * 定义了渲染器操作DOM所需的各种底层方法
+ * @template HostNode - 宿主节点类型
+ * @template HostElement - 宿主元素类型
+ */
 export interface RendererOptions<
   HostNode = RendererNode,
   HostElement = RendererElement,
 > {
+  /**
+   * 更新元素属性
+   * @param el - 目标元素
+   * @param key - 属性名
+   * @param prevValue - 旧属性值
+   * @param nextValue - 新属性值
+   * @param namespace - 元素命名空间
+   * @param parentComponent - 父组件实例
+   */
   patchProp(
     el: HostElement,
     key: string,
@@ -117,23 +173,96 @@ export interface RendererOptions<
     namespace?: ElementNamespace,
     parentComponent?: ComponentInternalInstance | null,
   ): void
+  /**
+   * 插入节点到DOM中
+   * @param el - 要插入的节点
+   * @param parent - 父容器
+   * @param anchor - 插入位置的参考节点
+   */
   insert(el: HostNode, parent: HostElement, anchor?: HostNode | null): void
+  /**
+   * 从DOM中移除节点
+   * @param el - 要移除的节点
+   */
   remove(el: HostNode): void
+  /**
+   * 创建元素节点
+   * @param type - 元素类型
+   * @param namespace - 元素命名空间
+   * @param isCustomizedBuiltIn - 是否为自定义内置元素
+   * @param vnodeProps - 虚拟节点属性
+   * @returns 创建的元素
+   */
   createElement(
     type: string,
     namespace?: ElementNamespace,
     isCustomizedBuiltIn?: string,
     vnodeProps?: (VNodeProps & { [key: string]: any }) | null,
   ): HostElement
+  /**
+   * 创建文本节点
+   * @param text - 文本内容
+   * @returns 创建的文本节点
+   */
   createText(text: string): HostNode
+  /**
+   * 创建注释节点
+   * @param text - 注释内容
+   * @returns 创建的注释节点
+   */
   createComment(text: string): HostNode
+  /**
+   * 设置文本节点内容
+   * @param node - 文本节点
+   * @param text - 新文本内容
+   */
   setText(node: HostNode, text: string): void
+  /**
+   * 设置元素文本内容
+   * @param node - 元素节点
+   * @param text - 新文本内容
+   */
   setElementText(node: HostElement, text: string): void
+  /**
+   * 获取节点的父元素
+   * @param node - 目标节点
+   * @returns 父元素或null
+   */
   parentNode(node: HostNode): HostElement | null
+  /**
+   * 获取节点的下一个兄弟节点
+   * @param node - 目标节点
+   * @returns 下一个兄弟节点或null
+   */
   nextSibling(node: HostNode): HostNode | null
+  /**
+   * 根据选择器查询元素（可选）
+   * @param selector - CSS选择器
+   * @returns 匹配的元素或null
+   */
   querySelector?(selector: string): HostElement | null
+  /**
+   * 设置元素的作用域ID（可选）
+   * @param el - 目标元素
+   * @param id - 作用域ID
+   */
   setScopeId?(el: HostElement, id: string): void
+  /**
+   * 克隆节点（可选）
+   * @param node - 要克隆的节点
+   * @returns 克隆后的节点
+   */
   cloneNode?(node: HostNode): HostNode
+  /**
+   * 插入静态内容（可选）
+   * @param content - 静态HTML内容
+   * @param parent - 父容器
+   * @param anchor - 插入位置的参考节点
+   * @param namespace - 元素命名空间
+   * @param start - 开始节点
+   * @param end - 结束节点
+   * @returns [开始节点, 结束节点]
+   */
   insertStaticContent?(
     content: string,
     parent: HostElement,
@@ -148,34 +277,101 @@ export interface RendererOptions<
 // logic - they are never directly operated on and always passed to the node op
 // functions provided via options, so the internal constraint is really just
 // a generic object.
+/**
+ * 渲染器节点接口
+ * 表示渲染器中的节点，实际上可以是任何对象
+ */
 export interface RendererNode {
   [key: string | symbol]: any
 }
 
+/**
+ * 渲染器元素接口
+ * 扩展自渲染器节点，表示可以包含子节点的元素
+ */
 export interface RendererElement extends RendererNode {}
 
 // An object exposing the internals of a renderer, passed to tree-shakeable
 // features so that they can be decoupled from this file. Keys are shortened
 // to optimize bundle size.
+/**
+ * 渲染器内部接口
+ * 暴露渲染器的内部实现，用于可树摇的特性
+ * @template HostNode - 宿主节点类型
+ * @template HostElement - 宿主元素类型
+ */
 export interface RendererInternals<
   HostNode = RendererNode,
   HostElement = RendererElement,
 > {
+  /**
+   * 补丁函数
+   * 负责对比新旧VNode并更新DOM
+   */
   p: PatchFn
+  /**
+   * 卸载函数
+   * 负责卸载VNode及其子树
+   */
   um: UnmountFn
+  /**
+   * 移除函数
+   * 负责从DOM中移除节点
+   */
   r: RemoveFn
+  /**
+   * 移动函数
+   * 负责移动DOM节点
+   */
   m: MoveFn
+  /**
+   * 挂载组件函数
+   * 负责挂载组件到DOM
+   */
   mt: MountComponentFn
+  /**
+   * 挂载子节点函数
+   * 负责挂载子VNode数组
+   */
   mc: MountChildrenFn
+  /**
+   * 补丁子节点函数
+   * 负责对比新旧子VNode数组并更新DOM
+   */
   pc: PatchChildrenFn
+  /**
+   * 补丁块子节点函数
+   * 负责对比更新块子节点
+   */
   pbc: PatchBlockChildrenFn
+  /**
+   * 获取下一个兄弟节点函数
+   * 用于获取节点的下一个兄弟节点
+   */
   n: NextFn
+  /**
+   * 渲染器选项
+   * 包含渲染器操作DOM的各种底层方法
+   */
   o: RendererOptions<HostNode, HostElement>
 }
 
 // These functions are created inside a closure and therefore their types cannot
 // be directly exported. In order to avoid maintaining function signatures in
 // two places, we declare them once here and use them inside the closure.
+/**
+ * 补丁函数类型
+ * 负责对比新旧VNode并更新DOM
+ * @param n1 - 旧VNode（null表示首次挂载）
+ * @param n2 - 新VNode
+ * @param container - 容器元素
+ * @param anchor - 参考节点
+ * @param parentComponent - 父组件实例
+ * @param parentSuspense - 父级Suspense边界
+ * @param namespace - 元素命名空间
+ * @param slotScopeIds - 插槽作用域ID
+ * @param optimized - 是否启用优化
+ */
 type PatchFn = (
   n1: VNode | null, // null means this is a mount
   n2: VNode,
@@ -188,6 +384,19 @@ type PatchFn = (
   optimized?: boolean,
 ) => void
 
+/**
+ * 挂载子节点函数类型
+ * 负责挂载子VNode数组到DOM
+ * @param children - 要挂载的子VNode数组
+ * @param container - 容器元素
+ * @param anchor - 参考节点
+ * @param parentComponent - 父组件实例
+ * @param parentSuspense - 父级Suspense边界
+ * @param namespace - 元素命名空间
+ * @param slotScopeIds - 插槽作用域ID
+ * @param optimized - 是否启用优化
+ * @param start - 开始索引
+ */
 type MountChildrenFn = (
   children: VNodeArrayChildren,
   container: RendererElement,
@@ -200,6 +409,19 @@ type MountChildrenFn = (
   start?: number,
 ) => void
 
+/**
+ * 补丁子节点函数类型
+ * 负责对比新旧VNode的子节点并更新DOM
+ * @param n1 - 旧VNode
+ * @param n2 - 新VNode
+ * @param container - 容器元素
+ * @param anchor - 参考节点
+ * @param parentComponent - 父组件实例
+ * @param parentSuspense - 父级Suspense边界
+ * @param namespace - 元素命名空间
+ * @param slotScopeIds - 插槽作用域ID
+ * @param optimized - 是否启用优化
+ */
 type PatchChildrenFn = (
   n1: VNode | null,
   n2: VNode,
@@ -212,6 +434,17 @@ type PatchChildrenFn = (
   optimized: boolean,
 ) => void
 
+/**
+ * 补丁块子节点函数类型
+ * 负责对比更新块子节点
+ * @param oldChildren - 旧子节点数组
+ * @param newChildren - 新子节点数组
+ * @param fallbackContainer - 回退容器
+ * @param parentComponent - 父组件实例
+ * @param parentSuspense - 父级Suspense边界
+ * @param namespace - 元素命名空间
+ * @param slotScopeIds - 插槽作用域ID
+ */
 type PatchBlockChildrenFn = (
   oldChildren: VNode[],
   newChildren: VNode[],
@@ -222,6 +455,15 @@ type PatchBlockChildrenFn = (
   slotScopeIds: string[] | null,
 ) => void
 
+/**
+ * 移动函数类型
+ * 负责移动DOM节点到新位置
+ * @param vnode - 要移动的虚拟节点
+ * @param container - 目标容器
+ * @param anchor - 参考节点
+ * @param type - 移动类型
+ * @param parentSuspense - 父级Suspense边界
+ */
 type MoveFn = (
   vnode: VNode,
   container: RendererElement,
@@ -230,8 +472,23 @@ type MoveFn = (
   parentSuspense?: SuspenseBoundary | null,
 ) => void
 
+/**
+ * 获取下一个兄弟节点函数类型
+ * 用于获取节点的下一个兄弟节点
+ * @param vnode - 虚拟节点
+ * @returns 下一个兄弟节点或null
+ */
 type NextFn = (vnode: VNode) => RendererNode | null
 
+/**
+ * 卸载函数类型
+ * 负责卸载VNode及其子树
+ * @param vnode - 要卸载的虚拟节点
+ * @param parentComponent - 父组件实例
+ * @param parentSuspense - 父级Suspense边界
+ * @param doRemove - 是否从DOM中移除
+ * @param optimized - 是否启用优化
+ */
 type UnmountFn = (
   vnode: VNode,
   parentComponent: ComponentInternalInstance | null,
@@ -240,8 +497,23 @@ type UnmountFn = (
   optimized?: boolean,
 ) => void
 
+/**
+ * 移除函数类型
+ * 负责从DOM中移除节点
+ * @param vnode - 要移除的虚拟节点
+ */
 type RemoveFn = (vnode: VNode) => void
 
+/**
+ * 卸载子节点函数类型
+ * 负责卸载子节点数组
+ * @param children - 要卸载的子节点数组
+ * @param parentComponent - 父组件实例
+ * @param parentSuspense - 父级Suspense边界
+ * @param doRemove - 是否从DOM中移除
+ * @param optimized - 是否启用优化
+ * @param start - 开始索引
+ */
 type UnmountChildrenFn = (
   children: VNode[],
   parentComponent: ComponentInternalInstance | null,
@@ -251,6 +523,17 @@ type UnmountChildrenFn = (
   start?: number,
 ) => void
 
+/**
+ * 挂载组件函数类型
+ * 负责将组件挂载到DOM
+ * @param initialVNode - 初始虚拟节点
+ * @param container - 容器元素
+ * @param anchor - 参考节点
+ * @param parentComponent - 父组件实例
+ * @param parentSuspense - 父级Suspense边界
+ * @param namespace - 元素命名空间
+ * @param optimized - 是否启用优化
+ */
 export type MountComponentFn = (
   initialVNode: VNode,
   container: RendererElement,
@@ -261,6 +544,14 @@ export type MountComponentFn = (
   optimized: boolean,
 ) => void
 
+/**
+ * 处理文本或注释节点函数类型
+ * 负责处理文本或注释节点的更新
+ * @param n1 - 旧虚拟节点
+ * @param n2 - 新虚拟节点
+ * @param container - 容器元素
+ * @param anchor - 参考节点
+ */
 type ProcessTextOrCommentFn = (
   n1: VNode | null,
   n2: VNode,
@@ -268,6 +559,17 @@ type ProcessTextOrCommentFn = (
   anchor: RendererNode | null,
 ) => void
 
+/**
+ * 设置渲染效果函数类型
+ * 负责设置组件的渲染效果
+ * @param instance - 组件实例
+ * @param initialVNode - 初始虚拟节点
+ * @param container - 容器元素
+ * @param anchor - 参考节点
+ * @param parentSuspense - 父级Suspense边界
+ * @param namespace - 元素命名空间
+ * @param optimized - 是否启用优化
+ */
 export type SetupRenderEffectFn = (
   instance: ComponentInternalInstance,
   initialVNode: VNode,
@@ -278,12 +580,31 @@ export type SetupRenderEffectFn = (
   optimized: boolean,
 ) => void
 
+/**
+ * 移动类型枚举
+ * 定义了节点移动的不同类型
+ */
 export enum MoveType {
+  /**
+   * 进入 - 节点新进入DOM
+   */
   ENTER,
+  /**
+   * 离开 - 节点从DOM中移除
+   */
   LEAVE,
+  /**
+   * 重排 - 节点在DOM中重新排序
+   */
   REORDER,
 }
 
+/**
+ * 队列渲染后效果函数
+ * 将效果函数添加到渲染后的队列中
+ * @param fn - 要执行的效果函数或函数数组
+ * @param suspense - Suspense边界实例
+ */
 export const queuePostRenderEffect: (
   fn: SchedulerJobs,
   suspense: SuspenseBoundary | null,
@@ -310,6 +631,14 @@ export const queuePostRenderEffect: (
  * })
  * ```
  */
+/**
+ * 创建渲染器函数
+ * 创建一个新的渲染器实例
+ * @template HostNode - 宿主节点类型
+ * @template HostElement - 宿主元素类型
+ * @param options - 渲染器选项
+ * @returns 渲染器实例
+ */
 export function createRenderer<
   HostNode = RendererNode,
   HostElement = RendererElement,
@@ -320,12 +649,27 @@ export function createRenderer<
 // Separate API for creating hydration-enabled renderer.
 // Hydration logic is only used when calling this function, making it
 // tree-shakable.
+/**
+ * 创建水合渲染器函数
+ * 创建一个支持服务端渲染水合的渲染器实例
+ * @param options - 渲染器选项
+ * @returns 水合渲染器实例
+ */
 export function createHydrationRenderer(
   options: RendererOptions<Node, Element>,
 ): HydrationRenderer {
   return baseCreateRenderer(options, createHydrationFunctions)
 }
 
+/**
+ * 基础创建渲染器函数
+ * 创建渲染器的核心实现
+ * @template HostNode - 宿主节点类型
+ * @template HostElement - 宿主元素类型
+ * @param options - 渲染器选项
+ * @param createHydrationFns - 水合函数创建器（可选）
+ * @returns 渲染器实例
+ */
 // overload 1: no hydration
 function baseCreateRenderer<
   HostNode = RendererNode,
@@ -371,6 +715,19 @@ function baseCreateRenderer(
 
   // Note: functions inside this closure should use `const xxx = () => {}`
   // style in order to prevent being inlined by minifiers.
+  /**
+   * 补丁函数
+   * 负责对比新旧VNode并更新DOM
+   * @param n1 - 旧虚拟节点
+   * @param n2 - 新虚拟节点
+   * @param container - 容器元素
+   * @param anchor - 参考节点
+   * @param parentComponent - 父组件实例
+   * @param parentSuspense - 父级Suspense边界
+   * @param namespace - 命名空间
+   * @param slotScopeIds - 插槽作用域ID
+   * @param optimized - 是否启用优化
+   */
   const patch: PatchFn = (
     n1,
     n2,
@@ -400,12 +757,24 @@ function baseCreateRenderer(
 
     const { type, ref, shapeFlag } = n2
     switch (type) {
+      /**
+       * 文本节点处理
+       * 处理文本类型的VNode
+       */
       case Text:
         processText(n1, n2, container, anchor)
         break
+      /**
+       * 注释节点处理
+       * 处理注释类型的VNode
+       */
       case Comment:
         processCommentNode(n1, n2, container, anchor)
         break
+      /**
+       * 静态节点处理
+       * 处理静态类型的VNode
+       */
       case Static:
         if (n1 == null) {
           mountStaticNode(n2, container, anchor, namespace)
@@ -413,6 +782,10 @@ function baseCreateRenderer(
           patchStaticNode(n1, n2, container, namespace)
         }
         break
+      /**
+       * 片段节点处理
+       * 处理片段类型的VNode
+       */
       case Fragment:
         processFragment(
           n1,
@@ -426,8 +799,16 @@ function baseCreateRenderer(
           optimized,
         )
         break
+      /**
+       * 默认分支处理
+       * 处理元素、组件和传送门等类型的VNode
+       */
       default:
         if (shapeFlag & ShapeFlags.ELEMENT) {
+          /**
+           * 元素节点处理
+           * 处理元素类型的VNode
+           */
           processElement(
             n1,
             n2,
@@ -440,6 +821,10 @@ function baseCreateRenderer(
             optimized,
           )
         } else if (shapeFlag & ShapeFlags.COMPONENT) {
+          /**
+           * 组件节点处理
+           * 处理组件类型的VNode
+           */
           processComponent(
             n1,
             n2,
@@ -452,6 +837,10 @@ function baseCreateRenderer(
             optimized,
           )
         } else if (shapeFlag & ShapeFlags.TELEPORT) {
+          /**
+           * 传送门节点处理
+           * 处理传送门类型的VNode
+           */
           ;(type as typeof TeleportImpl).process(
             n1 as TeleportVNode,
             n2 as TeleportVNode,
@@ -490,6 +879,14 @@ function baseCreateRenderer(
     }
   }
 
+  /**
+   * 处理文本节点函数
+   * 负责创建或更新文本节点
+   * @param n1 - 旧虚拟节点
+   * @param n2 - 新虚拟节点
+   * @param container - 容器元素
+   * @param anchor - 参考节点
+   */
   const processText: ProcessTextOrCommentFn = (n1, n2, container, anchor) => {
     if (n1 == null) {
       hostInsert(
@@ -505,6 +902,14 @@ function baseCreateRenderer(
     }
   }
 
+  /**
+   * 处理注释节点函数
+   * 负责创建或更新注释节点
+   * @param n1 - 旧虚拟节点
+   * @param n2 - 新虚拟节点
+   * @param container - 容器元素
+   * @param anchor - 参考节点
+   */
   const processCommentNode: ProcessTextOrCommentFn = (
     n1,
     n2,
@@ -523,6 +928,14 @@ function baseCreateRenderer(
     }
   }
 
+  /**
+   * 挂载静态节点函数
+   * 负责将静态节点挂载到DOM
+   * @param n2 - 新虚拟节点
+   * @param container - 容器元素
+   * @param anchor - 参考节点
+   * @param namespace - 命名空间
+   */
   const mountStaticNode = (
     n2: VNode,
     container: RendererElement,
@@ -543,6 +956,14 @@ function baseCreateRenderer(
 
   /**
    * Dev / HMR only
+   */
+  /**
+   * 更新静态节点函数
+   * 负责更新静态节点内容（仅开发环境和HMR时使用）
+   * @param n1 - 旧虚拟节点
+   * @param n2 - 新虚拟节点
+   * @param container - 容器元素
+   * @param namespace - 命名空间
    */
   const patchStaticNode = (
     n1: VNode,
@@ -568,6 +989,13 @@ function baseCreateRenderer(
     }
   }
 
+  /**
+   * 移动静态节点函数
+   * 负责移动静态节点到新位置
+   * @param param0 - 虚拟节点（包含el和anchor属性）
+   * @param container - 容器元素
+   * @param nextSibling - 下一个兄弟节点
+   */
   const moveStaticNode = (
     { el, anchor }: VNode,
     container: RendererElement,
@@ -582,6 +1010,11 @@ function baseCreateRenderer(
     hostInsert(anchor!, container, nextSibling)
   }
 
+  /**
+   * 移除静态节点函数
+   * 负责从DOM中移除静态节点
+   * @param param0 - 虚拟节点（包含el和anchor属性）
+   */
   const removeStaticNode = ({ el, anchor }: VNode) => {
     let next
     while (el && el !== anchor) {
@@ -592,6 +1025,19 @@ function baseCreateRenderer(
     hostRemove(anchor!)
   }
 
+  /**
+   * 处理元素节点函数
+   * 负责挂载或更新元素节点
+   * @param n1 - 旧虚拟节点
+   * @param n2 - 新虚拟节点
+   * @param container - 容器元素
+   * @param anchor - 参考节点
+   * @param parentComponent - 父组件实例
+   * @param parentSuspense - 父级Suspense边界
+   * @param namespace - 命名空间
+   * @param slotScopeIds - 插槽作用域ID
+   * @param optimized - 是否启用优化
+   */
   const processElement = (
     n1: VNode | null,
     n2: VNode,
@@ -633,6 +1079,18 @@ function baseCreateRenderer(
     }
   }
 
+  /**
+   * 挂载元素函数
+   * 负责将新元素节点挂载到DOM
+   * @param vnode - 虚拟节点
+   * @param container - 容器元素
+   * @param anchor - 参考节点
+   * @param parentComponent - 父组件实例
+   * @param parentSuspense - 父级Suspense边界
+   * @param namespace - 命名空间
+   * @param slotScopeIds - 插槽作用域ID
+   * @param optimized - 是否启用优化
+   */
   const mountElement = (
     vnode: VNode,
     container: RendererElement,
@@ -728,6 +1186,15 @@ function baseCreateRenderer(
     }
   }
 
+  /**
+   * 设置作用域ID函数
+   * 为元素设置作用域ID和插槽作用域ID
+   * @param el - 元素节点
+   * @param vnode - 虚拟节点
+   * @param scopeId - 作用域ID
+   * @param slotScopeIds - 插槽作用域ID数组
+   * @param parentComponent - 父组件实例
+   */
   const setScopeId = (
     el: RendererElement,
     vnode: VNode,
@@ -770,6 +1237,19 @@ function baseCreateRenderer(
     }
   }
 
+  /**
+   * 挂载子节点函数
+   * 负责挂载子节点数组到DOM
+   * @param children - 子节点数组
+   * @param container - 容器元素
+   * @param anchor - 参考节点
+   * @param parentComponent - 父组件实例
+   * @param parentSuspense - 父级Suspense边界
+   * @param namespace - 命名空间
+   * @param slotScopeIds - 插槽作用域ID
+   * @param optimized - 是否启用优化
+   * @param start - 开始索引（默认0）
+   */
   const mountChildren: MountChildrenFn = (
     children,
     container,
@@ -799,6 +1279,17 @@ function baseCreateRenderer(
     }
   }
 
+  /**
+   * 更新元素函数
+   * 负责更新已存在的元素节点
+   * @param n1 - 旧虚拟节点
+   * @param n2 - 新虚拟节点
+   * @param parentComponent - 父组件实例
+   * @param parentSuspense - 父级Suspense边界
+   * @param namespace - 命名空间
+   * @param slotScopeIds - 插槽作用域ID
+   * @param optimized - 是否启用优化
+   */
   const patchElement = (
     n1: VNode,
     n2: VNode,
@@ -984,6 +1475,15 @@ function baseCreateRenderer(
     }
   }
 
+  /**
+   * 更新属性函数
+   * 负责比较并更新元素的属性
+   * @param el - 元素节点
+   * @param oldProps - 旧属性对象
+   * @param newProps - 新属性对象
+   * @param parentComponent - 父组件实例
+   * @param namespace - 命名空间
+   */
   const patchProps = (
     el: RendererElement,
     oldProps: Data,
@@ -1022,6 +1522,20 @@ function baseCreateRenderer(
     }
   }
 
+  /**
+   * 处理Fragment节点函数
+   * 负责创建或更新Fragment节点
+   * Fragment是一种特殊的虚拟节点，用于表示多个节点的集合
+   * @param n1 - 旧虚拟节点
+   * @param n2 - 新虚拟节点
+   * @param container - 容器元素
+   * @param anchor - 参考节点
+   * @param parentComponent - 父组件实例
+   * @param parentSuspense - 父级Suspense边界
+   * @param namespace - 命名空间
+   * @param slotScopeIds - 插槽作用域ID
+   * @param optimized - 是否启用优化
+   */
   const processFragment = (
     n1: VNode | null,
     n2: VNode,
@@ -1129,6 +1643,19 @@ function baseCreateRenderer(
     }
   }
 
+  /**
+   * 处理组件节点函数
+   * 负责挂载或更新组件节点
+   * @param n1 - 旧虚拟节点
+   * @param n2 - 新虚拟节点
+   * @param container - 容器元素
+   * @param anchor - 参考节点
+   * @param parentComponent - 父组件实例
+   * @param parentSuspense - 父级Suspense边界
+   * @param namespace - 命名空间
+   * @param slotScopeIds - 插槽作用域ID
+   * @param optimized - 是否启用优化
+   */
   const processComponent = (
     n1: VNode | null,
     n2: VNode,
@@ -1166,6 +1693,17 @@ function baseCreateRenderer(
     }
   }
 
+  /**
+   * 挂载组件函数
+   * 负责将组件实例挂载到DOM
+   * @param initialVNode - 初始虚拟节点
+   * @param container - 容器元素
+   * @param anchor - 参考节点
+   * @param parentComponent - 父组件实例
+   * @param parentSuspense - 父级Suspense边界
+   * @param namespace - 命名空间
+   * @param optimized - 是否启用优化
+   */
   const mountComponent: MountComponentFn = (
     initialVNode,
     container,
@@ -1246,6 +1784,13 @@ function baseCreateRenderer(
     }
   }
 
+  /**
+   * 更新组件函数
+   * 负责比较新旧组件虚拟节点并更新组件实例
+   * @param n1 - 旧虚拟节点
+   * @param n2 - 新虚拟节点
+   * @param optimized - 是否启用优化
+   */
   const updateComponent = (n1: VNode, n2: VNode, optimized: boolean) => {
     const instance = (n2.component = n1.component)!
     if (shouldUpdateComponent(n1, n2, optimized)) {
@@ -1277,6 +1822,17 @@ function baseCreateRenderer(
     }
   }
 
+  /**
+   * 设置渲染效果函数
+   * 负责创建组件的更新函数并设置组件的渲染效果
+   * @param instance - 组件实例
+   * @param initialVNode - 初始虚拟节点
+   * @param container - 容器元素
+   * @param anchor - 参考节点
+   * @param parentSuspense - 父级Suspense边界
+   * @param namespace - 命名空间
+   * @param optimized - 是否启用优化
+   */
   const setupRenderEffect: SetupRenderEffectFn = (
     instance,
     initialVNode,
@@ -1286,6 +1842,12 @@ function baseCreateRenderer(
     namespace: ElementNamespace,
     optimized,
   ) => {
+    /**
+     * 组件更新函数
+     * 负责处理组件的挂载和更新逻辑
+     * - 挂载阶段：初始化组件、调用beforeMount钩子、渲染子树、调用mounted钩子
+     * - 更新阶段：调用beforeUpdate钩子、更新组件状态、重新渲染子树、调用updated钩子
+     */
     const componentUpdateFn = () => {
       if (!instance.isMounted) {
         let vnodeHook: VNodeHook | null | undefined
@@ -1588,6 +2150,13 @@ function baseCreateRenderer(
     update()
   }
 
+  /**
+   * 组件更新前准备函数
+   * 负责在组件渲染前更新props和slots
+   * @param instance - 组件实例
+   * @param nextVNode - 新虚拟节点
+   * @param optimized - 是否启用优化
+   */
   const updateComponentPreRender = (
     instance: ComponentInternalInstance,
     nextVNode: VNode,
@@ -1607,6 +2176,20 @@ function baseCreateRenderer(
     resetTracking()
   }
 
+  /**
+   * 更新子节点函数
+   * 负责比较并更新新旧虚拟节点的子节点
+   * 支持文本子节点、数组子节点等不同类型的子节点更新
+   * @param n1 - 旧虚拟节点
+   * @param n2 - 新虚拟节点
+   * @param container - 容器元素
+   * @param anchor - 参考节点
+   * @param parentComponent - 父组件实例
+   * @param parentSuspense - 父级Suspense边界
+   * @param namespace - 命名空间
+   * @param slotScopeIds - 插槽作用域ID
+   * @param optimized - 是否启用优化，默认为false
+   */
   const patchChildren: PatchChildrenFn = (
     n1,
     n2,
@@ -1709,6 +2292,20 @@ function baseCreateRenderer(
     }
   }
 
+  /**
+   * 更新未键控子节点函数
+   * 负责更新没有key的子节点数组
+   * 采用简单的索引对比策略：先对比相同索引的子节点，然后处理剩余的子节点
+   * @param c1 - 旧子节点数组
+   * @param c2 - 新子节点数组
+   * @param container - 容器元素
+   * @param anchor - 参考节点
+   * @param parentComponent - 父组件实例
+   * @param parentSuspense - 父级Suspense边界
+   * @param namespace - 命名空间
+   * @param slotScopeIds - 插槽作用域ID
+   * @param optimized - 是否启用优化
+   */
   const patchUnkeyedChildren = (
     c1: VNode[],
     c2: VNodeArrayChildren,
@@ -1768,7 +2365,26 @@ function baseCreateRenderer(
     }
   }
 
-  // can be all-keyed or mixed
+  /**
+   * 更新键控子节点函数
+   * 负责更新带有key的子节点数组（可全部带key或混合）
+   * 实现了Vue的高效diff算法，步骤如下：
+   * 1. 从头部开始同步相同的节点
+   * 2. 从尾部开始同步相同的节点
+   * 3. 处理剩余的节点：
+   *    - 如果旧节点已处理完，挂载新节点
+   *    - 如果新节点已处理完，卸载旧节点
+   *    - 否则，使用key进行更精确的对比和移动
+   * @param c1 - 旧子节点数组
+   * @param c2 - 新子节点数组
+   * @param container - 容器元素
+   * @param parentAnchor - 参考节点
+   * @param parentComponent - 父组件实例
+   * @param parentSuspense - 父级Suspense边界
+   * @param namespace - 命名空间
+   * @param slotScopeIds - 插槽作用域ID
+   * @param optimized - 是否启用优化
+   */
   const patchKeyedChildren = (
     c1: VNode[],
     c2: VNodeArrayChildren,

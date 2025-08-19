@@ -1,3 +1,7 @@
+/**
+ * Vue 3 核心模块 - 响应式观察 API
+ * 提供监测响应式数据变化并执行副作用的能力
+ */
 import {
   type WatchOptions as BaseWatchOptions,
   type DebuggerOptions,
@@ -31,8 +35,18 @@ export type {
   OnCleanup,
 } from '@vue/reactivity'
 
+/**
+ * 可能为 undefined 的类型
+ * @template T 基础类型
+ * @template I 是否可能为 undefined 的标记类型
+ */
 type MaybeUndefined<T, I> = I extends true ? T | undefined : T
 
+/**
+ * 映射观察源类型到其值类型
+ * @template T 观察源对象类型
+ * @template Immediate 是否立即执行的标记
+ */
 type MapSources<T, Immediate> = {
   [K in keyof T]: T[K] extends WatchSource<infer V>
     ? MaybeUndefined<V, Immediate>
@@ -41,17 +55,30 @@ type MapSources<T, Immediate> = {
       : never
 }
 
+/**
+ * watchEffect 选项
+ */
 export interface WatchEffectOptions extends DebuggerOptions {
   flush?: 'pre' | 'post' | 'sync'
 }
 
+/**
+ * watch 选项
+ * @template Immediate 是否立即执行的标记
+ */
 export interface WatchOptions<Immediate = boolean> extends WatchEffectOptions {
   immediate?: Immediate
   deep?: boolean | number
   once?: boolean
 }
 
-// Simple effect.
+// 简单副作用观察器
+/**
+ * 创建一个响应式的副作用函数，当依赖变化时重新运行
+ * @param effect 要执行的副作用函数
+ * @param options 配置选项
+ * @returns 停止观察的函数
+ */
 export function watchEffect(
   effect: WatchEffect,
   options?: WatchEffectOptions,
@@ -59,6 +86,12 @@ export function watchEffect(
   return doWatch(effect, null, options)
 }
 
+/**
+ * 创建一个在DOM更新后执行的副作用函数
+ * @param effect 要执行的副作用函数
+ * @param options 配置选项
+ * @returns 停止观察的函数
+ */
 export function watchPostEffect(
   effect: WatchEffect,
   options?: DebuggerOptions,
@@ -70,6 +103,12 @@ export function watchPostEffect(
   )
 }
 
+/**
+ * 创建一个同步执行的副作用函数
+ * @param effect 要执行的副作用函数
+ * @param options 配置选项
+ * @returns 停止观察的函数
+ */
 export function watchSyncEffect(
   effect: WatchEffect,
   options?: DebuggerOptions,
@@ -81,16 +120,46 @@ export function watchSyncEffect(
   )
 }
 
+/**
+ * 多个观察源的数组类型
+ */
 export type MultiWatchSources = (WatchSource<unknown> | object)[]
 
-// overload: single source + cb
+// 重载: 单个源 + 回调函数
+/**
+ * 观察多个响应式源并在变化时执行回调
+ * @template T 观察源数组类型
+ * @template Immediate 是否立即执行的标记
+ * @param sources 观察源数组
+ * @param cb 回调函数
+ * @param options 配置选项
+ * @returns 停止观察的函数
+ */
+/**
+ * 观察多个响应式源并在变化时执行回调
+ * @template T 观察源数组类型
+ * @template Immediate 是否立即执行的标记
+ * @param sources 观察源数组
+ * @param cb 回调函数
+ * @param options 配置选项
+ * @returns 停止观察的函数
+ */
+/**
+ * 观察响应式对象并在变化时执行回调
+ * @template T 响应式对象类型
+ * @template Immediate 是否立即执行的标记
+ * @param source 响应式对象
+ * @param cb 回调函数
+ * @param options 配置选项
+ * @returns 停止观察的函数
+ */
 export function watch<T, Immediate extends Readonly<boolean> = false>(
   source: WatchSource<T>,
   cb: WatchCallback<T, MaybeUndefined<T, Immediate>>,
   options?: WatchOptions<Immediate>,
 ): WatchHandle
 
-// overload: reactive array or tuple of multiple sources + cb
+// 重载: 响应式数组或多个源的元组 + 回调函数
 export function watch<
   T extends Readonly<MultiWatchSources>,
   Immediate extends Readonly<boolean> = false,
@@ -102,7 +171,7 @@ export function watch<
   options?: WatchOptions<Immediate>,
 ): WatchHandle
 
-// overload: array of multiple sources + cb
+// 重载: 多个源的数组 + 回调函数
 export function watch<
   T extends MultiWatchSources,
   Immediate extends Readonly<boolean> = false,
@@ -112,7 +181,7 @@ export function watch<
   options?: WatchOptions<Immediate>,
 ): WatchHandle
 
-// overload: watching reactive object w/ cb
+// 重载: 观察响应式对象 + 回调函数
 export function watch<
   T extends object,
   Immediate extends Readonly<boolean> = false,
@@ -122,7 +191,7 @@ export function watch<
   options?: WatchOptions<Immediate>,
 ): WatchHandle
 
-// implementation
+// 实现
 export function watch<T = any, Immediate extends Readonly<boolean> = false>(
   source: T | WatchSource<T>,
   cb: any,
@@ -143,9 +212,11 @@ function doWatch(
   cb: WatchCallback | null,
   options: WatchOptions = EMPTY_OBJ,
 ): WatchHandle {
-  const { immediate, deep, flush, once } = options
+  // 提取选项
+const { immediate, deep, flush, once } = options
 
-  if (__DEV__ && !cb) {
+  // 开发环境下的无效选项警告
+if (__DEV__ && !cb) {
     if (immediate !== undefined) {
       warn(
         `watch() "immediate" option is only respected when using the ` +
@@ -166,14 +237,17 @@ function doWatch(
     }
   }
 
-  const baseWatchOptions: BaseWatchOptions = extend({}, options)
+  // 准备基础观察选项
+const baseWatchOptions: BaseWatchOptions = extend({}, options)
 
   if (__DEV__) baseWatchOptions.onWarn = warn
 
   // immediate watcher or watchEffect
-  const runsImmediately = (cb && immediate) || (!cb && flush !== 'post')
+  // 立即执行的观察器或副作用观察
+const runsImmediately = (cb && immediate) || (!cb && flush !== 'post')
   let ssrCleanup: (() => void)[] | undefined
-  if (__SSR__ && isInSSRComponentSetup) {
+  // SSR环境清理函数
+if (__SSR__ && isInSSRComponentSetup) {
     if (flush === 'sync') {
       const ctx = useSSRContext()!
       ssrCleanup = ctx.__watcherHandles || (ctx.__watcherHandles = [])
@@ -186,11 +260,12 @@ function doWatch(
     }
   }
 
-  const instance = currentInstance
+  // 获取当前组件实例
+const instance = currentInstance
   baseWatchOptions.call = (fn, type, args) =>
     callWithAsyncErrorHandling(fn, instance, type, args)
 
-  // scheduler
+  // 调度器设置
   let isPre = false
   if (flush === 'post') {
     baseWatchOptions.scheduler = job => {
@@ -223,7 +298,8 @@ function doWatch(
     }
   }
 
-  const watchHandle = baseWatch(source, cb, baseWatchOptions)
+  // 创建基础观察器
+const watchHandle = baseWatch(source, cb, baseWatchOptions)
 
   if (__SSR__ && isInSSRComponentSetup) {
     if (ssrCleanup) {
@@ -236,7 +312,14 @@ function doWatch(
   return watchHandle
 }
 
-// this.$watch
+// 组件实例的 $watch 方法
+/**
+ * 组件实例的 $watch 方法实现
+ * @param source 观察源
+ * @param value 回调函数或选项对象
+ * @param options 配置选项
+ * @returns 停止观察的函数
+ */
 export function instanceWatch(
   this: ComponentInternalInstance,
   source: string | Function,
@@ -262,6 +345,12 @@ export function instanceWatch(
   return res
 }
 
+/**
+ * 创建路径访问器函数
+ * @param ctx 上下文对象
+ * @param path 属性路径
+ * @returns 访问指定路径属性的函数
+ */
 export function createPathGetter(ctx: any, path: string) {
   const segments = path.split('.')
   return (): any => {

@@ -1,3 +1,5 @@
+// Vue 3 核心模块 - 应用创建 API
+// 此模块负责创建和管理 Vue 应用实例
 import {
   type Component,
   type ComponentInternalInstance,
@@ -30,23 +32,70 @@ import type { ObjectEmitsOptions } from './componentEmits'
 import { ErrorCodes, callWithAsyncErrorHandling } from './errorHandling'
 import type { DefineComponent } from './apiDefineComponent'
 
+/**
+ * Vue 应用实例接口
+ * @template HostElement - 宿主元素类型
+ */
 export interface App<HostElement = any> {
   version: string
   config: AppConfig
 
-  use<Options extends unknown[]>(
+  /**
+     * 安装插件
+     * @template Options - 插件选项类型
+     * @param plugin - 要安装的插件
+     * @param options - 插件选项
+     * @returns 应用实例本身
+     */
+    use<Options extends unknown[]>(
     plugin: Plugin<Options>,
     ...options: NoInfer<Options>
   ): this
   use<Options>(plugin: Plugin<Options>, options: NoInfer<Options>): this
 
-  mixin(mixin: ComponentOptions): this
-  component(name: string): Component | undefined
-  component<T extends Component | DefineComponent>(
+  /**
+     * 全局混入组件选项
+     * @param mixin - 要混入的组件选项
+     * @returns 应用实例本身
+     */
+    mixin(mixin: ComponentOptions): this
+  /**
+     * 获取已注册的组件
+     * @param name - 组件名称
+     * @returns 组件定义或undefined
+     */
+    component(name: string): Component | undefined
+  /**
+     * 注册组件
+     * @template T - 组件类型
+     * @param name - 组件名称
+     * @param component - 组件定义
+     * @returns 应用实例本身
+     */
+    component<T extends Component | DefineComponent>(
     name: string,
     component: T,
   ): this
-  directive<
+  /**
+     * 获取已注册的指令
+     * @template HostElement - 宿主元素类型
+     * @template Value - 指令值类型
+     * @template Modifiers - 指令修饰符类型
+     * @template Arg - 指令参数类型
+     * @param name - 指令名称
+     * @returns 指令定义或undefined
+     */
+    /**
+     * 注册指令
+     * @template HostElement - 宿主元素类型
+     * @template Value - 指令值类型
+     * @template Modifiers - 指令修饰符类型
+     * @template Arg - 指令参数类型
+     * @param name - 指令名称
+     * @param directive - 指令定义
+     * @returns 应用实例本身
+     */
+    directive<
     HostElement = any,
     Value = any,
     Modifiers extends string = string,
@@ -78,9 +127,24 @@ export interface App<HostElement = any> {
      */
     vnode?: VNode,
   ): ComponentPublicInstance
-  unmount(): void
-  onUnmount(cb: () => void): void
-  provide<T, K = InjectionKey<T> | string | number>(
+  /**
+     * 卸载应用
+     */
+    unmount(): void
+  /**
+     * 注册应用卸载时的回调
+     * @param cb - 回调函数
+     */
+    onUnmount(cb: () => void): void
+  /**
+     * 提供全局依赖项
+     * @template T - 依赖项类型
+     * @template K - 依赖项键类型
+     * @param key - 依赖项键
+     * @param value - 依赖项值
+     * @returns 应用实例本身
+     */
+    provide<T, K = InjectionKey<T> | string | number>(
     key: K,
     value: K extends InjectionKey<infer V> ? V : T,
   ): this
@@ -91,7 +155,13 @@ export interface App<HostElement = any> {
    *
    * @param fn - function to run with the app as active instance
    */
-  runWithContext<T>(fn: () => T): T
+  /**
+     * 在应用上下文中运行函数
+     * @template T - 函数返回值类型
+     * @param fn - 要运行的函数
+     * @returns 函数执行结果
+     */
+    runWithContext<T>(fn: () => T): T
 
   // internal, but we need to expose these for the server-renderer and devtools
   _uid: number
@@ -120,6 +190,10 @@ export interface App<HostElement = any> {
 
 export type OptionMergeFunction = (to: unknown, from: unknown) => any
 
+/**
+ * 应用配置接口
+ * 包含应用的各种配置选项
+ */
 export interface AppConfig {
   // @private
   readonly isNativeTag: (tag: string) => boolean
@@ -168,6 +242,10 @@ export interface AppConfig {
   idPrefix?: string
 }
 
+/**
+ * 应用上下文接口
+ * 存储应用的全局状态和配置
+ */
 export interface AppContext {
   app: App // for devtools
   config: AppConfig
@@ -221,6 +299,10 @@ export type Plugin<
   P extends unknown[] = Options extends unknown[] ? Options : [Options],
 > = FunctionPlugin<P> | ObjectPlugin<P>
 
+/**
+ * 创建应用上下文
+ * @returns 新的应用上下文对象
+ */
 export function createAppContext(): AppContext {
   return {
     app: null as any,
@@ -250,6 +332,13 @@ export type CreateAppFunction<HostElement> = (
 
 let uid = 0
 
+/**
+ * 创建应用 API 函数
+ * @template HostElement - 宿主元素类型
+ * @param render - 根渲染函数
+ * @param hydrate - 根水合函数（可选）
+ * @returns 创建应用的函数
+ */
 export function createAppAPI<HostElement>(
   render: RootRenderFunction<HostElement>,
   hydrate?: RootHydrateFunction,
@@ -265,9 +354,11 @@ export function createAppAPI<HostElement>(
     }
 
     const context = createAppContext()
+    // 已安装插件集合，用于防止重复安装
     const installedPlugins = new WeakSet()
     const pluginCleanupFns: Array<() => any> = []
 
+    // 应用挂载状态标记
     let isMounted = false
 
     const app: App = (context.app = {
@@ -276,7 +367,8 @@ export function createAppAPI<HostElement>(
       _props: rootProps,
       _container: null,
       _context: context,
-      _instance: null,
+      // 初始化根实例为null
+  _instance: null,
 
       version,
 
@@ -294,12 +386,14 @@ export function createAppAPI<HostElement>(
 
       use(plugin: Plugin, ...options: any[]) {
         if (installedPlugins.has(plugin)) {
-          __DEV__ && warn(`Plugin has already been applied to target app.`)
-        } else if (plugin && isFunction(plugin.install)) {
-          installedPlugins.add(plugin)
+      __DEV__ && warn(`Plugin has already been applied to target app.`)
+    } else if (plugin && isFunction(plugin.install)) {
+      // 标记插件为已安装
+      installedPlugins.add(plugin)
           plugin.install(app, ...options)
         } else if (isFunction(plugin)) {
-          installedPlugins.add(plugin)
+      // 标记插件为已安装
+      installedPlugins.add(plugin)
           plugin(app, ...options)
         } else if (__DEV__) {
           warn(
@@ -355,7 +449,15 @@ export function createAppAPI<HostElement>(
         return app
       },
 
-      mount(
+      /**
+     * 挂载应用
+     * @param rootContainer - 根容器元素
+     * @param isHydrate - 是否进行水合（服务端渲染）
+     * @param namespace - 元素命名空间
+     * @param vnode - 自定义vnode（内部使用）
+     * @returns 根组件的公共实例
+     */
+    mount(
         rootContainer: HostElement,
         isHydrate?: boolean,
         namespace?: boolean | ElementNamespace,
@@ -369,9 +471,9 @@ export function createAppAPI<HostElement>(
                 ` you need to unmount the previous app by calling \`app.unmount()\` first.`,
             )
           }
+          // 创建根组件的vnode
           const vnode = app._ceVNode || createVNode(rootComponent, rootProps)
-          // store app context on the root VNode.
-          // this will be set on the root instance on initial mount.
+          // 将应用上下文存储在vnode上，以便子组件可以访问
           vnode.appContext = context
 
           if (namespace === true) {
@@ -397,24 +499,27 @@ export function createAppAPI<HostElement>(
           } else {
             render(vnode, rootContainer, namespace)
           }
+          // 标记应用为已挂载状态
           isMounted = true
           app._container = rootContainer
           // for devtools and telemetry
           ;(rootContainer as any).__vue_app__ = app
 
-          if (__DEV__ || __FEATURE_PROD_DEVTOOLS__) {
+          // 只在应用未挂载且开发环境或生产环境开发工具功能启用时执行
+          if ((__DEV__ || __FEATURE_PROD_DEVTOOLS__)) {
             app._instance = vnode.component
             devtoolsInitApp(app, version)
           }
 
           return getComponentPublicInstance(vnode.component!)
-        } else if (__DEV__) {
-          warn(
-            `App has already been mounted.\n` +
-              `If you want to remount the same app, move your app creation logic ` +
-              `into a factory function and create fresh app instances for each ` +
-              `mount - e.g. \`const createMyApp = () => createApp(App)\``,
-          )
+        } else // 开发环境下，添加组件渲染的调试信息
+      if (__DEV__) {
+        warn(
+          `App has already been mounted.\n` +
+            `If you want to remount the same app, move your app creation logic ` +
+            `into a factory function and create fresh app instances for each ` +
+            `mount - e.g. \`const createMyApp = () => createApp(App)\``,
+        )
         }
       },
 
@@ -435,12 +540,14 @@ export function createAppAPI<HostElement>(
             app._instance,
             ErrorCodes.APP_UNMOUNT_CLEANUP,
           )
+          // 清空渲染内容
           render(null, app._container)
           if (__DEV__ || __FEATURE_PROD_DEVTOOLS__) {
             app._instance = null
             devtoolsUnmountApp(app)
           }
-          delete app._container.__vue_app__
+          // 删除容器上的应用实例引用
+            delete app._container.__vue_app__
         } else if (__DEV__) {
           warn(`Cannot unmount an app that is not mounted.`)
         }
@@ -468,12 +575,14 @@ export function createAppAPI<HostElement>(
       },
 
       runWithContext(fn) {
-        const lastApp = currentApp
+        // 保存当前应用实例
+          const lastApp = currentApp
         currentApp = app
         try {
           return fn()
         } finally {
-          currentApp = lastApp
+          // 恢复之前的应用实例
+            currentApp = lastApp
         }
       },
     })

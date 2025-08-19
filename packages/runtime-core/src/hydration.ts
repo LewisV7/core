@@ -49,9 +49,16 @@ export type RootHydrateFunction = (
   container: (Element | ShadowRoot) & { _vnode?: VNode },
 ) => void
 
+/**
+ * DOM节点类型枚举
+ * 用于表示不同类型的DOM节点
+ */
 export enum DOMNodeTypes {
+  /** 元素节点 */
   ELEMENT = 1,
+  /** 文本节点 */
   TEXT = 3,
+  /** 注释节点 */
   COMMENT = 8,
 }
 
@@ -65,13 +72,28 @@ const logMismatchError = () => {
   hasLoggedMismatchError = true
 }
 
+/**
+ * 检查是否为SVG容器
+ * @param container - 容器元素
+ * @returns 是否为SVG容器
+ */
 const isSVGContainer = (container: Element) =>
   container.namespaceURI!.includes('svg') &&
   container.tagName !== 'foreignObject'
 
+/**
+ * 检查是否为MathML容器
+ * @param container - 容器元素
+ * @returns 是否为MathML容器
+ */
 const isMathMLContainer = (container: Element) =>
   container.namespaceURI!.includes('MathML')
 
+/**
+ * 获取容器类型
+ * @param container - 容器元素或影子根
+ * @returns 容器类型：'svg'、'mathml'或undefined
+ */
 const getContainerType = (
   container: Element | ShadowRoot,
 ): 'svg' | 'mathml' | undefined => {
@@ -81,14 +103,23 @@ const getContainerType = (
   return undefined
 }
 
+/**
+ * 检查是否为注释节点
+ * @param node - 要检查的节点
+ * @returns 该节点是否为注释节点
+ */
 export const isComment = (node: Node): node is Comment =>
   node.nodeType === DOMNodeTypes.COMMENT
 
-// Note: hydration is DOM-specific
-// But we have to place it in core due to tight coupling with core - splitting
-// it out creates a ton of unnecessary complexity.
-// Hydration also depends on some renderer internal logic which needs to be
-// passed in via arguments.
+/**
+ * 创建水合（Hydration）功能函数
+ * 水合是将服务端渲染的HTML转换为客户端可交互DOM的过程
+ *
+ * @param rendererInternals - 渲染器内部API
+ * @returns 包含两个函数的数组：
+ *          1. 根水合函数，用于启动整个水合过程
+ *          2. 节点水合函数，用于水合单个节点
+ */
 export function createHydrationFunctions(
   rendererInternals: RendererInternals<Node, Element>,
 ): [
@@ -116,6 +147,12 @@ export function createHydrationFunctions(
     },
   } = rendererInternals
 
+  /**
+   * 根水合函数
+   * 启动整个水合过程，将虚拟节点与现有DOM容器进行匹配
+   * @param vnode - 虚拟节点
+   * @param container - DOM容器
+   */
   const hydrate: RootHydrateFunction = (vnode, container) => {
     if (!container.hasChildNodes()) {
       ;(__DEV__ || __FEATURE_PROD_HYDRATION_MISMATCH_DETAILS__) &&
@@ -134,6 +171,17 @@ export function createHydrationFunctions(
     container._vnode = vnode
   }
 
+  /**
+   * 节点水合函数
+   * 负责将单个DOM节点与虚拟节点进行匹配和水合
+   * @param node - 要水合的DOM节点
+   * @param vnode - 对应的虚拟节点
+   * @param parentComponent - 父组件实例
+   * @param parentSuspense - 父级Suspense边界
+   * @param slotScopeIds - 插槽作用域ID
+   * @param optimized - 是否启用优化，默认为false
+   * @returns 下一个要处理的节点或null
+   */
   const hydrateNode = (
     node: Node,
     vnode: VNode,

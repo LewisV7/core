@@ -1,3 +1,8 @@
+/**
+ * Vue 3 核心模块 - 组件定义 API
+ * 此文件包含用于定义 Vue 组件的类型和工具函数，
+ * 提供了强大的类型推断和组件选项验证功能。
+ */
 import type {
   ComponentInjectOptions,
   ComponentOptions,
@@ -37,10 +42,20 @@ import type { SlotsType } from './componentSlots'
 import type { Directive } from './directives'
 import type { ComponentTypeEmits } from './apiSetupHelpers'
 
+/**
+ * 公共属性类型，包含所有组件都可以接受的属性
+ * 组合了 VNodeProps、AllowedComponentProps 和 ComponentCustomProps
+ */
 export type PublicProps = VNodeProps &
   AllowedComponentProps &
   ComponentCustomProps
 
+/**
+ * 解析组件属性类型
+ * @template PropsOrPropOptions - 原始属性或属性选项
+ * @template E -  emits 选项类型
+ * @returns 解析后的属性类型，包含原始属性和事件处理函数
+ */
 type ResolveProps<PropsOrPropOptions, E extends EmitsOptions> = Readonly<
   PropsOrPropOptions extends ComponentPropsOptions
     ? ExtractPropTypes<PropsOrPropOptions>
@@ -48,6 +63,30 @@ type ResolveProps<PropsOrPropOptions, E extends EmitsOptions> = Readonly<
 > &
   ({} extends E ? {} : EmitsToProps<E>)
 
+/**
+ * 定义组件的类型接口
+ * @template PropsOrPropOptions - 组件属性或属性选项
+ * @template RawBindings - 原始绑定类型
+ * @template D - 数据类型
+ * @template C - 计算属性类型
+ * @template M - 方法类型
+ * @template Mixin - 混入类型
+ * @template Extends - 继承类型
+ * @template E - emits 选项类型
+ * @template EE - emits 事件名称类型
+ * @template PP - 公共属性类型
+ * @template Props - 解析后的属性类型
+ * @template Defaults - 默认属性类型
+ * @template S - 插槽类型
+ * @template LC - 局部组件类型
+ * @template Directives - 指令类型
+ * @template Exposed - 暴露的属性类型
+ * @template Provide - 提供的依赖类型
+ * @template MakeDefaultsOptional - 是否使默认属性可选
+ * @template TypeRefs - 引用类型
+ * @template TypeEl - 元素类型
+ * @returns 组件公共实例构造函数类型
+ */
 export type DefineComponent<
   PropsOrPropOptions = {},
   RawBindings = {},
@@ -112,6 +151,15 @@ export type DefineComponent<
   > &
   PP
 
+/**
+ * 定义基于 setup 函数的组件类型
+ * @template P - 属性类型
+ * @template E - emits 选项类型
+ * @template S - 插槽类型
+ * @template Props - 解析后的属性类型
+ * @template PP - 公共属性类型
+ * @returns 组件构造函数类型
+ */
 export type DefineSetupFnComponent<
   P extends Record<string, any>,
   E extends EmitsOptions = {},
@@ -136,16 +184,76 @@ export type DefineSetupFnComponent<
   S
 >
 
+/**
+ * 将属性和事件处理函数合并为最终的属性类型
+ * @template Props - 属性类型
+ * @template Emits - emits 选项类型
+ * @returns 合并后的属性类型
+ */
 type ToResolvedProps<Props, Emits extends EmitsOptions> = Readonly<Props> &
   Readonly<EmitsToProps<Emits>>
 
-// defineComponent is a utility that is primarily used for type inference
+/**
+ * 用于定义组件的工具函数，主要用于类型推断
+ * 当声明组件时提供类型推断，并返回具有人工类型的对象
+ * 用于 TSX / 手动渲染函数 / IDE 支持
+ */
+// overload 1: direct setup function
+// (uses user defined props interface)
 // when declaring components. Type inference is provided in the component
 // options (provided as the argument). The returned value has artificial types
 // for TSX / manual render function / IDE support.
 
 // overload 1: direct setup function
 // (uses user defined props interface)
+/**
+ * 重载 1: 使用 setup 函数定义组件
+ * @template Props - 属性类型
+ * @template E - emits 选项类型
+ * @template EE - emits 事件名称类型
+ * @template S - 插槽类型
+ * @param setup - 组件的 setup 函数
+ * @param options - 组件选项
+ * @returns 定义的组件
+ */
+/**
+ * 重载 2: 使用 setup 函数和对象形式的 props 选项定义组件
+ * @template Props - 属性类型
+ * @template E - emits 选项类型
+ * @template EE - emits 事件名称类型
+ * @template S - 插槽类型
+ * @param setup - 组件的 setup 函数
+ * @param options - 组件选项
+ * @returns 定义的组件
+ */
+/**
+ * 使用选项对象定义组件
+ * @template TypeProps - 类型属性
+ * @template RuntimePropsOptions - 运行时属性选项
+ * @template RuntimePropsKeys - 运行时属性键
+ * @template TypeEmits - 类型 emits
+ * @template RuntimeEmitsOptions - 运行时 emits 选项
+ * @template RuntimeEmitsKeys - 运行时 emits 键
+ * @template Data - 数据类型
+ * @template SetupBindings - setup 绑定类型
+ * @template Computed - 计算属性类型
+ * @template Methods - 方法类型
+ * @template Mixin - 混入类型
+ * @template Extends - 继承类型
+ * @template InjectOptions - 注入选项
+ * @template InjectKeys - 注入键
+ * @template Slots - 插槽类型
+ * @template LocalComponents - 局部组件类型
+ * @template Directives - 指令类型
+ * @template Exposed - 暴露的属性
+ * @template Provide - 提供的依赖
+ * @template ResolvedEmits - 解析后的 emits
+ * @template InferredProps - 推断的属性
+ * @template TypeRefs - 引用类型
+ * @template TypeEl - 元素类型
+ * @param options - 组件选项对象
+ * @returns 定义的组件
+ */
 export function defineComponent<
   Props extends Record<string, any>,
   E extends EmitsOptions = {},
@@ -179,6 +287,9 @@ export function defineComponent<
   },
 ): DefineSetupFnComponent<Props, E, S>
 
+/**
+ * 重载 2: 使用选项对象定义组件，从选项中推断属性类型
+ */
 // overload 2: defineComponent with options object, infer props from options
 export function defineComponent<
   // props
@@ -300,8 +411,18 @@ export function defineComponent<
   TypeEl
 >
 
+/**
+ * defineComponent 函数的实现，几乎是一个空操作
+ * 主要作用是提供类型推断和组件选项的合并
+ */
 // implementation, close to no-op
 /*! #__NO_SIDE_EFFECTS__ */
+/**
+ * 组件定义函数的实现
+ * @param options - 组件选项或 setup 函数
+ * @param extraOptions - 额外选项
+ * @returns 处理后的组件选项对象
+ */
 export function defineComponent(
   options: unknown,
   extraOptions?: ComponentOptions,

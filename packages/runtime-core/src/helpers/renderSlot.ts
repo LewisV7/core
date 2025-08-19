@@ -1,3 +1,7 @@
+/**
+ * Vue 3 核心模块 - 插槽渲染工具
+ * 处理组件插槽渲染的核心实现，包括普通插槽和作用域插槽
+ */
 import type { Data } from '../component'
 import type { RawSlots, Slots } from '../componentSlots'
 import {
@@ -19,7 +23,14 @@ import { warn } from '../warning'
 import { isAsyncWrapper } from '../apiAsyncComponent'
 
 /**
- * Compiler runtime helper for rendering `<slot/>`
+ * 编译器运行时辅助函数，用于渲染 `<slot/>` 元素
+ *
+ * @param slots 组件的插槽对象
+ * @param name 插槽名称
+ * @param props 传递给插槽的属性对象
+ * @param fallback 可选的回退内容生成函数
+ * @param noSlotted 可选参数，是否禁用插槽作用域ID
+ * @returns 渲染后的 VNode
  * @private
  */
 export function renderSlot(
@@ -31,18 +42,17 @@ export function renderSlot(
   fallback?: () => VNodeArrayChildren,
   noSlotted?: boolean,
 ): VNode {
+  // 在自定义元素模式下，将 <slot/> 渲染为实际的插槽出口
   if (
     currentRenderingInstance!.ce ||
     (currentRenderingInstance!.parent &&
       isAsyncWrapper(currentRenderingInstance!.parent) &&
       currentRenderingInstance!.parent.ce)
   ) {
-    // in custom element mode, render <slot/> as actual slot outlets
-    // wrap it with a fragment because in shadowRoot: false mode the slot
-    // element gets replaced by injected content
-    if (name !== 'default') props.name = name
+    // 在shadowRoot: false模式下，插槽元素会被注入的内容替换，因此需要用Fragment包裹
+    // 非默认插槽需要设置name属性
     return (
-      openBlock(),
+      // 打开块上下文,
       createBlock(
         Fragment,
         null,
@@ -52,31 +62,33 @@ export function renderSlot(
     )
   }
 
+  // 获取指定名称的插槽
   let slot = slots[name]
-
+  // 开发环境下，检查插槽是否为SSR优化的函数
   if (__DEV__ && slot && slot.length > 1) {
     warn(
-      `SSR-optimized slot function detected in a non-SSR-optimized render ` +
-        `function. You need to mark this component with $dynamic-slots in the ` +
-        `parent template.`,
+      `在非SSR优化的渲染函数中检测到SSR优化的插槽函数。` +
+        `你需要在父模板中使用$dynamic-slots标记此组件。`,
     )
     slot = () => []
   }
 
-  // a compiled slot disables block tracking by default to avoid manual
-  // invocation interfering with template-based block tracking, but in
-  // `renderSlot` we can be sure that it's template-based so we can force
-  // enable it.
+  // 编译后的插槽默认禁用块跟踪，以避免手动调用干扰基于模板的块跟踪
+  // 但在`renderSlot`中，我们可以确定它是基于模板的，因此可以强制启用它
+  // 恢复插槽的块跟踪设置
   if (slot && (slot as ContextualRenderFn)._c) {
     ;(slot as ContextualRenderFn)._d = false
   }
   openBlock()
+  // 获取并确保插槽内容有效
   const validSlotContent = slot && ensureValidVNode(slot(props))
+  // 确定插槽的key
   const slotKey =
     props.key ||
     // slot content array of a dynamic conditional slot may have a branch
     // key attached in the `createSlots` helper, respect that
     (validSlotContent && (validSlotContent as any).key)
+  // 创建块节点
   const rendered = createBlock(
     Fragment,
     {
@@ -90,6 +102,7 @@ export function renderSlot(
       ? PatchFlags.STABLE_FRAGMENT
       : PatchFlags.BAIL,
   )
+  // 如果不是noSlotted且有作用域ID，则添加插槽作用域ID
   if (!noSlotted && rendered.scopeId) {
     rendered.slotScopeIds = [rendered.scopeId + '-s']
   }
@@ -99,6 +112,12 @@ export function renderSlot(
   return rendered
 }
 
+/**
+ * 确保VNode数组有效（非空且不只是注释节点）
+ *
+ * @param vnodes 要检查的VNode数组
+ * @returns 有效则返回原数组，无效则返回null
+ */
 export function ensureValidVNode(
   vnodes: VNodeArrayChildren,
 ): VNodeArrayChildren | null {
