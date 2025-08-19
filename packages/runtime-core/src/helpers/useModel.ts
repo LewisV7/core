@@ -1,3 +1,8 @@
+/**
+ * 双向绑定模型工具
+ * 提供useModel函数用于在组件中实现双向绑定
+ * 支持自定义getter和setter，以及模型修饰符
+ */
 import { type Ref, customRef, ref } from '@vue/reactivity'
 import { EMPTY_OBJ, camelize, hasChanged, hyphenate } from '@vue/shared'
 import type { DefineModelOptions, ModelRef } from '../apiSetupHelpers'
@@ -6,6 +11,18 @@ import { warn } from '../warning'
 import type { NormalizedProps } from '../componentProps'
 import { watchSyncEffect } from '../apiWatch'
 
+/**
+ * 创建一个与组件props双向绑定的响应式引用
+ * @template M 模型名称类型
+ * @template T props类型
+ * @template K props中的键名
+ * @template G getter返回类型
+ * @template S setter参数类型
+ * @param props 组件的props对象
+ * @param name 要绑定的prop名称
+ * @param options 可选配置项，包含getter和setter
+ * @returns 一个响应式引用，与指定的prop双向绑定
+ */
 export function useModel<
   M extends PropertyKey,
   T extends Record<string, any>,
@@ -117,6 +134,12 @@ export function useModel(
   return res
 }
 
+/**
+ * 获取模型修饰符
+ * @param props 组件的props对象
+ * @param modelName 模型名称
+ * @returns 修饰符对象，如果没有则返回undefined
+ */
 export const getModelModifiers = (
   props: Record<string, any>,
   modelName: string,

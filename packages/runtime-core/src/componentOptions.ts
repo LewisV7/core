@@ -1,3 +1,8 @@
+/**
+ * 组件选项处理
+ * 此文件包含Vue组件选项的类型定义、工具函数和处理逻辑
+ * 负责组件属性、生命周期钩子、事件等选项的规范化和处理
+ */
 import {
   type Component,
   type ComponentInternalInstance,
@@ -88,7 +93,8 @@ import {
 import { markAsyncBoundary } from './helpers/useId'
 
 /**
- * Interface for declaring custom options.
+ * 自定义组件选项接口
+ * 用于声明组件的自定义选项，可以通过模块扩展来添加新的选项
  *
  * @example
  * ```ts
@@ -105,8 +111,34 @@ import { markAsyncBoundary } from './helpers/useId'
  */
 export interface ComponentCustomOptions {}
 
+/**
+ * 渲染函数类型
+ * 组件渲染函数，返回虚拟DOM节点
+ */
 export type RenderFunction = () => VNodeChild
 
+/**
+ * 组件选项基础接口
+ * 定义了组件的核心选项和类型参数
+ *
+ * @template Props - 组件属性类型
+ * @template RawBindings - setup函数返回的绑定类型
+ * @template D - 组件数据类型
+ * @template C - 计算属性类型
+ * @template M - 方法类型
+ * @template Mixin - 混入类型
+ * @template Extends - 继承类型
+ * @template E - 事件选项类型
+ * @template EE - 事件名称类型
+ * @template Defaults - 默认属性类型
+ * @template I - 注入选项类型
+ * @template II - 注入键类型
+ * @template S - 插槽类型
+ * @template LC - 局部组件类型
+ * @template Directives - 指令类型
+ * @template Exposed - 暴露属性类型
+ * @template Provide - 提供选项类型
+ */
 export interface ComponentOptionsBase<
   Props,
   RawBindings,
@@ -227,7 +259,8 @@ export interface ComponentOptionsBase<
 }
 
 /**
- * Subset of compiler options that makes sense for the runtime.
+ * 运行时编译器选项接口
+ * 定义了对运行时有意义的编译器选项子集
  */
 export interface RuntimeCompilerOptions {
   isCustomElement?: (tag: string) => boolean
@@ -236,6 +269,28 @@ export interface RuntimeCompilerOptions {
   delimiters?: [string, string]
 }
 
+/**
+ * 组件选项类型
+ * 定义了组件的完整选项类型，继承自ComponentOptionsBase
+ *
+ * @template Props - 组件属性类型
+ * @template RawBindings - setup函数返回的绑定类型
+ * @template D - 组件数据类型
+ * @template C - 计算属性类型
+ * @template M - 方法类型
+ * @template Mixin - 混入类型
+ * @template Extends - 继承类型
+ * @template E - 事件选项类型
+ * @template EE - 事件名称类型
+ * @template Defaults - 默认属性类型
+ * @template I - 注入选项类型
+ * @template II - 注入键类型
+ * @template S - 插槽类型
+ * @template LC - 局部组件类型
+ * @template Directives - 指令类型
+ * @template Exposed - 暴露属性类型
+ * @template Provide - 提供选项类型
+ */
 export type ComponentOptions<
   Props = {},
   RawBindings = any,
@@ -293,6 +348,10 @@ export type ComponentOptions<
     >
   >
 
+/**
+ * 组件选项混入类型
+ * 定义了组件选项的混入类型，可以被其他组件继承或混入
+ */
 export type ComponentOptionsMixin = ComponentOptionsBase<
   any,
   any,
@@ -313,15 +372,28 @@ export type ComponentOptionsMixin = ComponentOptionsBase<
   any
 >
 
+/**
+ * 计算属性选项类型
+ * 定义了组件中计算属性的类型
+ */
 export type ComputedOptions = Record<
   string,
   ComputedGetter<any> | WritableComputedOptions<any>
 >
 
+/**
+ * 方法选项接口
+ * 定义了组件中方法的类型
+ */
 export interface MethodOptions {
   [key: string]: Function
 }
 
+/**
+ * 提取计算属性返回值类型
+ * 从计算属性选项中提取返回值类型
+ * @template T - 计算属性选项类型
+ */
 export type ExtractComputedReturns<T extends any> = {
   [key in keyof T]: T[key] extends { get: (...args: any[]) => infer TReturn }
     ? TReturn
@@ -330,27 +402,64 @@ export type ExtractComputedReturns<T extends any> = {
       : never
 }
 
+/**
+ * 对象形式的监视选项项
+ * 定义了对象形式的监视选项
+ */
 export type ObjectWatchOptionItem = {
   handler: WatchCallback | string
 } & WatchOptions
 
+/**
+ * 监视选项项
+ * 定义了监视选项的可能类型
+ */
 type WatchOptionItem = string | WatchCallback | ObjectWatchOptionItem
 
+/**
+ * 组件监视选项项
+ * 定义了组件中监视选项的可能类型
+ */
 type ComponentWatchOptionItem = WatchOptionItem | WatchOptionItem[]
 
+/**
+ * 组件监视选项
+ * 定义了组件中监视选项的记录类型
+ */
 type ComponentWatchOptions = Record<string, ComponentWatchOptionItem>
 
+/**
+ * 组件提供选项类型
+ * 定义了组件中provide选项的类型
+ */
 export type ComponentProvideOptions = ObjectProvideOptions | Function
 
+/**
+ * 对象形式的提供选项
+ * 定义了对象形式的provide选项
+ */
 type ObjectProvideOptions = Record<string | symbol, unknown>
 
+/**
+ * 组件注入选项类型
+ * 定义了组件中inject选项的类型，可以是字符串数组或对象形式
+ */
 export type ComponentInjectOptions = string[] | ObjectInjectOptions
 
+/**
+ * 对象形式的注入选项
+ * 定义了对象形式的inject选项
+ */
 type ObjectInjectOptions = Record<
   string | symbol,
   string | symbol | { from?: string | symbol; default?: unknown }
 >
 
+/**
+ * 将注入选项转换为对象类型
+ * 将组件注入选项转换为对应的对象类型
+ * @template T - 组件注入选项类型
+ */
 export type InjectToObject<T extends ComponentInjectOptions> =
   T extends string[]
     ? {
@@ -362,6 +471,20 @@ export type InjectToObject<T extends ComponentInjectOptions> =
         }
       : never
 
+/**
+ * 遗留选项接口
+ * 定义了组件的遗留选项，兼容旧版Vue的选项
+ *
+ * @template Props - 组件属性类型
+ * @template D - 组件数据类型
+ * @template C - 计算属性类型
+ * @template M - 方法类型
+ * @template Mixin - 混入类型
+ * @template Extends - 继承类型
+ * @template I - 注入选项类型
+ * @template II - 注入键类型
+ * @template Provide - 提供选项类型
+ */
 interface LegacyOptions<
   Props,
   D,
@@ -451,11 +574,24 @@ interface LegacyOptions<
   __differentiator?: keyof D | keyof C | keyof M
 }
 
+/**
+ * 合并后的钩子函数类型
+ * 表示可以是单个钩子函数或钩子函数数组
+ * @template T - 钩子函数类型，默认为无参数无返回值的函数
+ */
 type MergedHook<T = () => void> = T | T[]
 
+/**
+ * 合并后的组件选项类型
+ * 定义了合并后的组件选项，包含基础组件选项和覆盖选项
+ */
 export type MergedComponentOptions = ComponentOptions &
   MergedComponentOptionsOverride
 
+/**
+ * 合并组件选项覆盖类型
+ * 定义了可以覆盖的合并组件选项，主要是生命周期钩子
+ */
 export type MergedComponentOptionsOverride = {
   beforeCreate?: MergedHook
   created?: MergedHook
@@ -476,8 +612,23 @@ export type MergedComponentOptionsOverride = {
   errorCaptured?: MergedHook<ErrorCapturedHook>
 }
 
+/**
+ * 选项类型键
+ * 定义了组件选项类型的键
+ */
 export type OptionTypesKeys = 'P' | 'B' | 'D' | 'C' | 'M' | 'Defaults'
 
+/**
+ * 选项类型映射
+ * 定义了组件选项类型的映射关系
+ *
+ * @template P - 属性类型
+ * @template B - 绑定类型
+ * @template D - 数据类型
+ * @template C - 计算属性类型
+ * @template M - 方法类型
+ * @template Defaults - 默认属性类型
+ */
 export type OptionTypesType<
   P = {},
   B = {},
@@ -494,6 +645,10 @@ export type OptionTypesType<
   Defaults: Defaults
 }
 
+/**
+ * 选项类型枚举
+ * 枚举了组件的各种选项类型
+ */
 enum OptionTypes {
   PROPS = 'Props',
   DATA = 'Data',
@@ -502,6 +657,11 @@ enum OptionTypes {
   INJECT = 'Inject',
 }
 
+/**
+ * 创建重复检查器
+ * 创建一个函数，用于检查组件选项中是否存在重复定义的属性
+ * @returns 检查函数，接受选项类型和属性名作为参数
+ */
 function createDuplicateChecker() {
   const cache = Object.create(null)
   return (type: OptionTypes, key: string) => {
@@ -513,8 +673,17 @@ function createDuplicateChecker() {
   }
 }
 
+/**
+ * 是否缓存属性访问
+ * 控制是否缓存对公共代理的属性访问
+ */
 export let shouldCacheAccess = true
 
+/**
+ * 应用组件选项
+ * 将组件选项应用到组件实例
+ * @param instance - 组件内部实例
+ */
 export function applyOptions(instance: ComponentInternalInstance): void {
   const options = resolveMergedOptions(instance)
   const publicThis = instance.proxy! as any
@@ -710,7 +879,13 @@ export function applyOptions(instance: ComponentInternalInstance): void {
     callHook(created, instance, LifecycleHooks.CREATED)
   }
 
-  function registerLifecycleHook(
+  /**
+ * 注册生命周期钩子
+ * 注册组件的生命周期钩子函数
+ * @param register - 注册函数
+ * @param hook - 生命周期钩子函数或函数数组
+ */
+function registerLifecycleHook(
     register: Function,
     hook?: Function | Function[],
   ) {
@@ -789,6 +964,13 @@ export function applyOptions(instance: ComponentInternalInstance): void {
   }
 }
 
+/**
+ * 解析注入选项
+ * 解析组件的注入选项，并将注入的值添加到组件上下文中
+ * @param injectOptions - 组件的注入选项，可以是字符串数组或对象
+ * @param ctx - 组件上下文对象
+ * @param checkDuplicateProperties - 检查重复属性的函数，默认为空函数
+ */
 export function resolveInjections(
   injectOptions: ComponentInjectOptions,
   ctx: any,
@@ -830,6 +1012,13 @@ export function resolveInjections(
   }
 }
 
+/**
+ * 调用生命周期钩子
+ * 调用组件的生命周期钩子函数，并处理异步错误
+ * @param hook - 要调用的生命周期钩子函数或函数数组
+ * @param instance - 组件内部实例
+ * @param type - 生命周期钩子类型
+ */
 function callHook(
   hook: Function,
   instance: ComponentInternalInstance,
@@ -844,6 +1033,14 @@ function callHook(
   )
 }
 
+/**
+ * 创建监听器
+ * 根据组件的watch选项创建监听器
+ * @param raw - 原始的监视选项，可以是字符串、函数、对象或对象数组
+ * @param ctx - 组件上下文对象
+ * @param publicThis - 组件公共实例
+ * @param key - 要监视的属性键名
+ */
 export function createWatcher(
   raw: ComponentWatchOptionItem,
   ctx: Data,
@@ -918,9 +1115,11 @@ export function createWatcher(
 }
 
 /**
- * Resolve merged options and cache it on the component.
- * This is done only once per-component since the merging does not involve
- * instances.
+ * 解析合并后的组件选项
+ * 解析合并后的组件选项并缓存到组件上
+ * 每个组件只执行一次，因为合并不涉及实例
+ * @param instance - 组件内部实例
+ * @returns 合并后的组件选项
  */
 export function resolveMergedOptions(
   instance: ComponentInternalInstance,
@@ -964,6 +1163,15 @@ export function resolveMergedOptions(
   return resolved
 }
 
+/**
+ * 合并组件选项
+ * 合并两个组件选项对象
+ * @param to - 目标对象，合并结果将存储在这里
+ * @param from - 源对象，要合并的选项
+ * @param strats - 选项合并策略对象
+ * @param asMixin - 是否作为混入合并，默认为false
+ * @returns 合并后的对象
+ */
 export function mergeOptions(
   to: any,
   from: any,
@@ -1000,6 +1208,10 @@ export function mergeOptions(
   return to
 }
 
+/**
+ * 内部选项合并策略
+ * 定义了各种组件选项的合并策略
+ */
 export const internalOptionMergeStrats: Record<string, Function> = {
   data: mergeDataFn,
   props: mergeEmitsOrPropsOptions,
@@ -1036,6 +1248,13 @@ if (__COMPAT__) {
   internalOptionMergeStrats.filters = mergeObjectOptions
 }
 
+/**
+ * 合并数据函数
+ * 合并组件的data选项
+ * @param to - 目标数据
+ * @param from - 源数据
+ * @returns 合并后的数据函数
+ */
 function mergeDataFn(to: any, from: any) {
   if (!from) {
     return to
@@ -1055,6 +1274,13 @@ function mergeDataFn(to: any, from: any) {
   }
 }
 
+/**
+ * 合并注入选项
+ * 合并组件的inject选项
+ * @param to - 目标注入选项
+ * @param from - 源注入选项
+ * @returns 合并后的注入选项
+ */
 function mergeInject(
   to: ComponentInjectOptions | undefined,
   from: ComponentInjectOptions,
@@ -1062,6 +1288,12 @@ function mergeInject(
   return mergeObjectOptions(normalizeInject(to), normalizeInject(from))
 }
 
+/**
+ * 标准化注入选项
+ * 将注入选项标准化为对象形式
+ * @param raw - 原始注入选项
+ * @returns 标准化后的注入选项
+ */
 function normalizeInject(
   raw: ComponentInjectOptions | undefined,
 ): ObjectInjectOptions | undefined {
@@ -1075,14 +1307,36 @@ function normalizeInject(
   return raw
 }
 
+/**
+ * 合并为数组
+ * 将选项合并为数组
+ * @template T - 数组元素类型，默认为Function
+ * @param to - 目标选项
+ * @param from - 源选项
+ * @returns 合并后的数组
+ */
 function mergeAsArray<T = Function>(to: T[] | T | undefined, from: T | T[]) {
   return to ? [...new Set([].concat(to as any, from as any))] : from
 }
 
+/**
+ * 合并对象选项
+ * 合并对象类型的组件选项
+ * @param to - 目标对象
+ * @param from - 源对象
+ * @returns 合并后的对象
+ */
 function mergeObjectOptions(to: Object | undefined, from: Object | undefined) {
   return to ? extend(Object.create(null), to, from) : from
 }
 
+/**
+ * 合并emits或props选项
+ * 合并组件的emits或props选项
+ * @param to - 目标选项
+ * @param from - 源选项
+ * @returns 合并后的选项
+ */
 function mergeEmitsOrPropsOptions(
   to: EmitsOptions | undefined,
   from: EmitsOptions | undefined,
@@ -1109,6 +1363,13 @@ function mergeEmitsOrPropsOptions(
   }
 }
 
+/**
+ * 合并监视选项
+ * 合并组件的watch选项
+ * @param to - 目标监视选项
+ * @param from - 源监视选项
+ * @returns 合并后的监视选项
+ */
 function mergeWatchOptions(
   to: ComponentWatchOptions | undefined,
   from: ComponentWatchOptions | undefined,
@@ -1125,7 +1386,25 @@ function mergeWatchOptions(
 // Deprecated legacy types, kept because they were previously exported ---------
 
 /**
- * @deprecated
+ * 无props的组件选项类型
+ * @deprecated 已弃用的类型
+ *
+ * @template Props - 属性类型，默认为空对象
+ * @template RawBindings - setup函数返回的绑定类型
+ * @template D - 组件数据类型
+ * @template C - 计算属性类型
+ * @template M - 方法类型
+ * @template Mixin - 混入类型
+ * @template Extends - 继承类型
+ * @template E - 事件选项类型
+ * @template EE - 事件名称类型
+ * @template I - 注入选项类型
+ * @template II - 注入键类型
+ * @template S - 插槽类型
+ * @template LC - 局部组件类型
+ * @template Directives - 指令类型
+ * @template Exposed - 暴露属性类型
+ * @template Provide - 提供选项类型
  */
 export type ComponentOptionsWithoutProps<
   Props = {},
@@ -1199,7 +1478,26 @@ export type ComponentOptionsWithoutProps<
   >
 
 /**
- * @deprecated
+ * 带数组props的组件选项类型
+ * @deprecated 已弃用的类型
+ *
+ * @template PropNames - 属性名称类型，默认为字符串
+ * @template RawBindings - setup函数返回的绑定类型
+ * @template D - 组件数据类型
+ * @template C - 计算属性类型
+ * @template M - 方法类型
+ * @template Mixin - 混入类型
+ * @template Extends - 继承类型
+ * @template E - 事件选项类型
+ * @template EE - 事件名称类型
+ * @template I - 注入选项类型
+ * @template II - 注入键类型
+ * @template S - 插槽类型
+ * @template LC - 局部组件类型
+ * @template Directives - 指令类型
+ * @template Exposed - 暴露属性类型
+ * @template Provide - 提供选项类型
+ * @template Props - 处理后的属性类型
  */
 export type ComponentOptionsWithArrayProps<
   PropNames extends string = string,
@@ -1261,7 +1559,27 @@ export type ComponentOptionsWithArrayProps<
   >
 
 /**
- * @deprecated
+ * 带对象props的组件选项类型
+ * @deprecated 已弃用的类型
+ *
+ * @template PropsOptions - 对象属性选项类型
+ * @template RawBindings - setup函数返回的绑定类型
+ * @template D - 组件数据类型
+ * @template C - 计算属性类型
+ * @template M - 方法类型
+ * @template Mixin - 混入类型
+ * @template Extends - 继承类型
+ * @template E - 事件选项类型
+ * @template EE - 事件名称类型
+ * @template I - 注入选项类型
+ * @template II - 注入键类型
+ * @template S - 插槽类型
+ * @template LC - 局部组件类型
+ * @template Directives - 指令类型
+ * @template Exposed - 暴露属性类型
+ * @template Provide - 提供选项类型
+ * @template Props - 处理后的属性类型
+ * @template Defaults - 默认属性类型
  */
 export type ComponentOptionsWithObjectProps<
   PropsOptions = ComponentObjectPropsOptions,

@@ -1,3 +1,8 @@
+/**
+ * 组件Props处理模块
+ * 此文件包含Vue组件Props的类型定义、初始化和验证逻辑
+ * 负责将传入的props转换为组件内部可用的格式，并处理默认值、类型检查等
+ */
 import {
   TriggerOpTypes,
   shallowReactive,
@@ -40,46 +45,96 @@ import { DeprecationTypes } from './compat/compatConfig'
 import { shouldSkipAttr } from './compat/attrsFallthrough'
 import { createInternalObject } from './internalObject'
 
+/**
+ * 组件Props选项类型
+ * 可以是对象形式的props选项或字符串数组形式的props列表
+ */
 export type ComponentPropsOptions<P = Data> =
   | ComponentObjectPropsOptions<P>
   | string[]
 
+/**
+ * 对象形式的组件Props选项类型
+ * 每个键对应一个prop，值可以是Prop定义或null
+ */
 export type ComponentObjectPropsOptions<P = Data> = {
   [K in keyof P]: Prop<P[K]> | null
 }
 
+/**
+ * 单个Prop的类型定义
+ * 可以是PropOptions对象或PropType类型
+ */
 export type Prop<T, D = T> = PropOptions<T, D> | PropType<T>
 
+/**
+ * 默认值工厂函数类型
+ * 接收props对象并返回默认值
+ */
 type DefaultFactory<T> = (props: Data) => T | null | undefined
 
+/**
+ * Prop选项接口
+ * 定义单个prop的配置选项
+ */
 export interface PropOptions<T = any, D = T> {
+  /**
+   * prop的类型，可以是构造函数、构造函数数组或true/null
+   */
   type?: PropType<T> | true | null
+  /**
+   * 是否必需
+   */
   required?: boolean
+  /**
+   * 默认值，可以是具体值、工厂函数或null/undefined/object
+   */
   default?: D | DefaultFactory<D> | null | undefined | object
+  /**
+   * 验证函数，用于验证prop值是否有效
+   */
   validator?(value: unknown, props: Data): boolean
   /**
    * @internal
+   * 是否跳过类型检查
    */
   skipCheck?: boolean
   /**
    * @internal
+   * 是否跳过工厂函数处理
    */
   skipFactory?: boolean
 }
 
+/**
+ * Prop类型定义
+ * 可以是单个构造函数或构造函数数组（可包含null）
+ */
 export type PropType<T> = PropConstructor<T> | (PropConstructor<T> | null)[]
 
+/**
+ * Prop构造函数类型
+ * 可以是类构造函数、工厂函数或PropMethod
+ */
 type PropConstructor<T = any> =
   | { new (...args: any[]): T & {} }
   | { (): T }
   | PropMethod<T>
 
+/**
+ * 函数类型Prop的构造函数定义
+ * 用于处理函数类型的props
+ */
 type PropMethod<T, TConstructor = any> = [T] extends [
   ((...args: any) => any) | undefined,
 ] // if is function with args, allowing non-required functions
   ? { new (): TConstructor; (): T; readonly prototype: TConstructor } // Create Function like constructor
   : never
 
+/**
+ * 必需属性键类型
+ * 从props选项中提取必需的prop键
+ */
 type RequiredKeys<T> = {
   [K in keyof T]: T[K] extends
     | { required: true }
@@ -93,8 +148,16 @@ type RequiredKeys<T> = {
     : never
 }[keyof T]
 
+/**
+ * 可选属性键类型
+ * 从props选项中提取可选的prop键
+ */
 type OptionalKeys<T> = Exclude<keyof T, RequiredKeys<T>>
 
+/**
+ * 默认属性键类型
+ * 从props选项中提取具有默认值的prop键
+ */
 type DefaultKeys<T> = {
   [K in keyof T]: T[K] extends
     | { default: any }
@@ -107,6 +170,10 @@ type DefaultKeys<T> = {
     : never
 }[keyof T]
 
+/**
+ * 从Prop选项中推断Prop类型
+ * 根据传入的Prop选项类型T推断出实际的Prop类型
+ */
 type InferPropType<T, NullAsAny = true> = [T] extends [null]
   ? NullAsAny extends true
     ? any
@@ -132,13 +199,12 @@ type InferPropType<T, NullAsAny = true> = [T] extends [null]
               : T
 
 /**
- * Extract prop types from a runtime props options object.
- * The extracted types are **internal** - i.e. the resolved props received by
- * the component.
- * - Boolean props are always present
- * - Props with default values are always present
+ * 从运行时props选项对象中提取prop类型（内部使用）
+ * 提取的类型是组件接收的解析后的props类型
+ * - 布尔类型的props始终存在
+ * - 有默认值的props始终存在
  *
- * To extract accepted props from the parent, use {@link ExtractPublicPropTypes}.
+ * 要提取父组件可传递的props类型，请使用{@link ExtractPublicPropTypes}。
  */
 export type ExtractPropTypes<O> = {
   // use `keyof Pick<O, RequiredKeys<O>>` instead of `RequiredKeys<O>` to
@@ -152,16 +218,23 @@ export type ExtractPropTypes<O> = {
   [K in keyof Pick<O, OptionalKeys<O>>]?: InferPropType<O[K]>
 }
 
+/**
+ * 公共必需属性键类型
+ * 从props选项中提取标记为必需的prop键
+ */
 type PublicRequiredKeys<T> = {
   [K in keyof T]: T[K] extends { required: true } ? K : never
 }[keyof T]
 
+/**
+ * 公共可选属性键类型
+ * 从props选项中提取非必需的prop键
+ */
 type PublicOptionalKeys<T> = Exclude<keyof T, PublicRequiredKeys<T>>
 
 /**
- * Extract prop types from a runtime props options object.
- * The extracted types are **public** - i.e. the expected props that can be
- * passed to component.
+ * 从运行时props选项对象中提取prop类型（公共使用）
+ * 提取的类型是可传递给组件的预期props类型
  */
 export type ExtractPublicPropTypes<O> = {
   [K in keyof Pick<O, PublicRequiredKeys<O>>]: InferPropType<O[K]>
@@ -169,31 +242,63 @@ export type ExtractPublicPropTypes<O> = {
   [K in keyof Pick<O, PublicOptionalKeys<O>>]?: InferPropType<O[K]>
 }
 
+/**
+ * 布尔类型处理标志枚举
+ * 用于控制布尔类型props的转换行为
+ */
 enum BooleanFlags {
+  /** 是否应该转换类型 */
   shouldCast,
+  /** 是否应该转换为true */
   shouldCastTrue,
 }
 
-// extract props which defined with default from prop options
+/**
+ * 提取具有默认值的prop类型
+ * 从props选项中提取定义了默认值的prop类型
+ */
 export type ExtractDefaultPropTypes<O> = O extends object
   ? // use `keyof Pick<O, DefaultKeys<O>>` instead of `DefaultKeys<O>` to support IDE features
     { [K in keyof Pick<O, DefaultKeys<O>>]: InferPropType<O[K]> }
   : {}
 
+/**
+ * 标准化的Prop选项类型
+ * 扩展自PropOptions，添加了布尔类型转换标志
+ */
 type NormalizedProp = PropOptions & {
+  /** 是否应该转换布尔类型 */
   [BooleanFlags.shouldCast]?: boolean
+  /** 是否应该将布尔类型转换为true */
   [BooleanFlags.shouldCastTrue]?: boolean
 }
 
-// normalized value is a tuple of the actual normalized options
-// and an array of prop keys that need value casting (booleans and defaults)
+/**
+ * 标准化的Props类型
+ * 记录了每个prop的标准化选项
+ */
 export type NormalizedProps = Record<string, NormalizedProp>
+
+/**
+ * 标准化的Props选项类型
+ * 包含标准化的props和需要值转换的prop键数组的元组
+ */
 export type NormalizedPropsOptions = [NormalizedProps, string[]] | []
 
+/**
+ * 初始化组件Props
+ * 负责处理传入的原始props，将其转换为组件内部可用的格式
+ * 包括类型检查、默认值处理、响应式转换等
+ *
+ * @param instance 组件内部实例
+ * @param rawProps 原始props对象
+ * @param isStateful 是否为有状态组件（位运算标志比较的结果）
+ * @param isSSR 是否为服务端渲染
+ */
 export function initProps(
   instance: ComponentInternalInstance,
   rawProps: Data | null,
-  isStateful: number, // result of bitwise flag comparison
+  isStateful: number, // 位运算标志比较的结果
   isSSR = false,
 ): void {
   const props: Data = {}

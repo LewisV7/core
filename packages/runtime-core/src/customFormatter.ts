@@ -1,3 +1,7 @@
+/**
+ * Vue 自定义格式化器
+ * 用于在 Chrome 开发者工具中优化 Vue 相关对象的显示
+ */
 import {
   type Ref,
   isReactive,
@@ -12,8 +16,14 @@ import { EMPTY_OBJ, extend, isArray, isFunction, isObject } from '@vue/shared'
 import type { ComponentInternalInstance, ComponentOptions } from './component'
 import type { ComponentPublicInstance } from './componentPublicInstance'
 
+/**
+ * 初始化自定义格式化器
+ * 在开发环境下为 Chrome 开发者工具注册 Vue 自定义对象格式化器
+ * 用于优化 Vue 实例、响应式对象、Ref 等在控制台中的显示
+ */
 export function initCustomFormatter(): void {
   /* eslint-disable no-restricted-globals */
+  // 只在开发环境和浏览器环境下初始化
   if (!__DEV__ || typeof window === 'undefined') {
     return
   }
@@ -23,8 +33,12 @@ export function initCustomFormatter(): void {
   const stringStyle = { style: 'color:#f5222d' }
   const keywordStyle = { style: 'color:#eb2f96' }
 
-  // custom formatter for Chrome
-  // https://www.mattzeunert.com/2016/02/19/custom-chrome-devtools-object-formatters.html
+  /**
+   * Chrome 自定义格式化器
+   * 实现 Chrome 开发者工具的自定义对象格式化器接口
+   * 用于自定义 Vue 相关对象在控制台中的显示方式
+   * @see https://www.mattzeunert.com/2016/02/19/custom-chrome-devtools-object-formatters.html
+   */
   const formatter = {
     __vue_custom_formatter: true,
     header(obj: unknown) {
@@ -83,6 +97,11 @@ export function initCustomFormatter(): void {
     },
   }
 
+  /**
+   * 格式化组件实例
+   * @param instance - 组件内部实例
+   * @returns 格式化后的组件实例信息块
+   */
   function formatInstance(instance: ComponentInternalInstance) {
     const blocks = []
     if (instance.type.props && instance.props) {
@@ -118,6 +137,12 @@ export function initCustomFormatter(): void {
     return blocks
   }
 
+  /**
+   * 创建实例信息块
+   * @param type - 信息块类型（props、setup、data等）
+   * @param target - 目标对象
+   * @returns 格式化后的信息块
+   */
   function createInstanceBlock(type: string, target: any) {
     target = extend({}, target)
     if (!Object.keys(target).length) {
@@ -150,6 +175,12 @@ export function initCustomFormatter(): void {
     ]
   }
 
+  /**
+   * 格式化值
+   * @param v - 要格式化的值
+   * @param asRaw - 是否使用原始值
+   * @returns 格式化后的显示内容
+   */
   function formatValue(v: unknown, asRaw = true) {
     if (typeof v === 'number') {
       return ['span', numberStyle, v]
@@ -164,6 +195,12 @@ export function initCustomFormatter(): void {
     }
   }
 
+  /**
+   * 提取指定类型的键
+   * @param instance - 组件内部实例
+   * @param type - 键类型（computed、inject等）
+   * @returns 提取的键值对
+   */
   function extractKeys(instance: ComponentInternalInstance, type: string) {
     const Comp = instance.type
     if (isFunction(Comp)) {
@@ -178,6 +215,13 @@ export function initCustomFormatter(): void {
     return extracted
   }
 
+  /**
+   * 判断键是否为指定类型
+   * @param Comp - 组件选项
+   * @param key - 键名
+   * @param type - 类型
+   * @returns 是否为指定类型的键
+   */
   function isKeyOfType(Comp: ComponentOptions, key: string, type: string) {
     const opts = Comp[type]
     if (
@@ -194,6 +238,11 @@ export function initCustomFormatter(): void {
     }
   }
 
+  /**
+   * 生成 Ref 标志
+   * @param v - Ref 对象
+   * @returns Ref 类型标志字符串
+   */
   function genRefFlag(v: Ref) {
     if (isShallow(v)) {
       return `ShallowRef`

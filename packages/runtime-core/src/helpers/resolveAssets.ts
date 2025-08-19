@@ -1,3 +1,8 @@
+/**
+ * 资源解析工具
+ * 负责解析组件、指令和过滤器等资源
+ * 支持局部注册和全局注册的资源解析
+ */
 import {
   type ComponentOptions,
   type ConcreteComponent,
@@ -10,13 +15,21 @@ import { camelize, capitalize, isString } from '@vue/shared'
 import { warn } from '../warning'
 import type { VNodeTypes } from '../vnode'
 
+/** 组件资源类型标识 */
 export const COMPONENTS = 'components'
+/** 指令资源类型标识 */
 export const DIRECTIVES = 'directives'
+/** 过滤器资源类型标识 (仅用于v2兼容) */
 export const FILTERS = 'filters'
 
+/** 资源类型联合类型 */
 export type AssetTypes = typeof COMPONENTS | typeof DIRECTIVES | typeof FILTERS
 
 /**
+ * 解析组件
+ * @param name 组件名称
+ * @param maybeSelfReference 是否可能是自引用
+ * @returns 解析到的组件或组件名称
  * @private
  */
 export function resolveComponent(
@@ -26,9 +39,13 @@ export function resolveComponent(
   return resolveAsset(COMPONENTS, name, true, maybeSelfReference) || name
 }
 
+/** 无效动态组件标识 */
 export const NULL_DYNAMIC_COMPONENT: unique symbol = Symbol.for('v-ndc')
 
 /**
+ * 解析动态组件
+ * @param component 组件引用，可以是字符串或组件对象
+ * @returns 解析到的组件或NULL_DYNAMIC_COMPONENT
  * @private
  */
 export function resolveDynamicComponent(component: unknown): VNodeTypes {
@@ -41,6 +58,9 @@ export function resolveDynamicComponent(component: unknown): VNodeTypes {
 }
 
 /**
+ * 解析指令
+ * @param name 指令名称
+ * @returns 解析到的指令或undefined
  * @private
  */
 export function resolveDirective(name: string): Directive | undefined {
@@ -48,7 +68,9 @@ export function resolveDirective(name: string): Directive | undefined {
 }
 
 /**
- * v2 compat only
+ * 解析过滤器 (仅用于v2兼容)
+ * @param name 过滤器名称
+ * @returns 解析到的过滤器函数或undefined
  * @internal
  */
 export function resolveFilter(name: string): Function | undefined {
@@ -56,6 +78,13 @@ export function resolveFilter(name: string): Function | undefined {
 }
 
 /**
+ * 解析资源的核心函数
+ * 支持解析组件、指令和过滤器
+ * @param type 资源类型
+ * @param name 资源名称
+ * @param warnMissing 是否在未找到时发出警告
+ * @param maybeSelfReference 是否可能是自引用
+ * @returns 解析到的资源或undefined
  * @private
  * overload 1: components
  */
@@ -130,6 +159,13 @@ function resolveAsset(
   }
 }
 
+/**
+ * 在注册表中解析资源
+ * 支持按原始名称、驼峰式名称和首字母大写的驼峰式名称查找
+ * @param registry 资源注册表
+ * @param name 资源名称
+ * @returns 解析到的资源或undefined
+ */
 function resolve(registry: Record<string, any> | undefined, name: string) {
   return (
     registry &&
