@@ -46,10 +46,26 @@ import { createApp, createSSRApp, render } from '.'
 // marker for attr removal
 const REMOVAL = {}
 
+/**
+ * Vue自定义元素构造函数类型
+ * @template P - 元素属性类型
+ * @typedef {Object} VueElementConstructor
+ * @property {Function} new - 创建自定义元素实例的构造函数
+ * @param {Record<string, any>} [initialProps] - 初始属性
+ * @returns {VueElement & P} - 自定义元素实例
+ */
 export type VueElementConstructor<P = {}> = {
   new (initialProps?: Record<string, any>): VueElement & P
 }
 
+/**
+ * 自定义元素选项接口
+ * @interface CustomElementOptions
+ * @property {string[]} [styles] - 内联CSS样式数组
+ * @property {boolean} [shadowRoot] - 是否使用Shadow DOM
+ * @property {string} [nonce] - 用于CSP的加密随机数
+ * @property {(app: App) => void} [configureApp] - 配置应用实例的回调函数
+ */
 export interface CustomElementOptions {
   styles?: string[]
   shadowRoot?: boolean
@@ -57,10 +73,22 @@ export interface CustomElementOptions {
   configureApp?: (app: App) => void
 }
 
-// defineCustomElement provides the same type inference as defineComponent
-// so most of the following overloads should be kept in sync w/ defineComponent.
+// defineCustomElement提供与defineComponent相同的类型推断
+// 因此以下大多数重载应与defineComponent保持同步
 
-// overload 1: direct setup function
+/**
+ * 定义自定义元素（重载1：直接传入setup函数）
+ * @template Props - 属性类型
+ * @template RawBindings - setup函数返回的绑定对象类型
+ * @param {(props: Props, ctx: SetupContext) => RawBindings | RenderFunction} setup - 组件的setup函数
+ * @param {Object} [options] - 组件和自定义元素选项
+ * @param {string} [options.name] - 组件名称
+ * @param {boolean} [options.inheritAttrs] - 是否继承非props属性
+ * @param {EmitsOptions} [options.emits] - 组件发出的事件
+ * @param {CustomElementOptions} [options] - 自定义元素选项
+ * @param {(keyof Props)[]} [options.props] - 属性键数组
+ * @returns {VueElementConstructor<Props>} - 自定义元素构造函数
+ */
 export function defineCustomElement<Props, RawBindings = object>(
   setup: (props: Props, ctx: SetupContext) => RawBindings | RenderFunction,
   options?: Pick<ComponentOptions, 'name' | 'inheritAttrs' | 'emits'> &
@@ -76,6 +104,35 @@ export function defineCustomElement<Props, RawBindings = object>(
     },
 ): VueElementConstructor<Props>
 
+/**
+ * 定义自定义元素（重载2：传入选项对象，从选项推断属性）
+ * @template RuntimePropsOptions - 运行时属性选项类型
+ * @template PropsKeys - 属性键类型
+ * @template RuntimeEmitsOptions - 运行时触发事件选项类型
+ * @template EmitsKeys - 事件键类型
+ * @template Data - 数据类型
+ * @template SetupBindings - setup绑定类型
+ * @template Computed - 计算属性类型
+ * @template Methods - 方法类型
+ * @template Mixin - 混入类型
+ * @template Extends - 继承类型
+ * @template InjectOptions - 注入选项类型
+ * @template InjectKeys - 注入键类型
+ * @template Slots - 插槽类型
+ * @template LocalComponents - 局部组件类型
+ * @template Directives - 指令类型
+ * @template Exposed - 暴露类型
+ * @template Provide - 提供类型
+ * @template InferredProps - 推断的属性类型
+ * @template ResolvedProps - 解析的属性类型
+ * @param {Object} options - 组件和自定义元素选项
+ * @param {RuntimePropsOptions | PropsKeys[]} [options.props] - 属性定义
+ * @param {CustomElementOptions} [options] - 自定义元素选项
+ * @param {ComponentOptionsBase} [options] - 组件基本选项
+ * @param {ThisType} [options] - this类型
+ * @param {Object} [extraOptions] - 额外的自定义元素选项
+ * @returns {VueElementConstructor<ResolvedProps>} - 自定义元素构造函数
+ */
 // overload 2: defineCustomElement with options object, infer props from options
 export function defineCustomElement<
   // props
@@ -151,6 +208,17 @@ export function defineCustomElement<
   extraOptions?: CustomElementOptions,
 ): VueElementConstructor<ResolvedProps>
 
+/**
+ * 定义自定义元素（重载3：从defineComponent的返回值创建）
+ * @template T - 组件公共实例构造函数类型
+ * @param {T} options - defineComponent返回的组件
+ * @param {CustomElementOptions} [extraOptions] - 自定义元素选项
+ * @returns {VueElementConstructor} - 自定义元素构造函数
+ * @example
+ * const MyComponent = defineComponent({ ... })
+ * const MyCustomElement = defineCustomElement(MyComponent)
+ * customElements.define('my-element', MyCustomElement)
+ */
 // overload 3: defining a custom element from the returned value of
 // `defineComponent`
 export function defineCustomElement<
@@ -163,6 +231,14 @@ export function defineCustomElement<
   T extends DefineComponent<infer P, any, any, any> ? P : unknown
 >
 
+/**
+ * 定义自定义元素的实现函数
+ * @param {any} options - 组件选项或setup函数
+ * @param {ComponentOptions} [extraOptions] - 额外的组件选项
+ * @param {CreateAppFunction<Element>} [_createApp] - 创建应用的函数
+ * @returns {VueElementConstructor} - 自定义元素构造函数
+ * @internal
+ */
 /*! #__NO_SIDE_EFFECTS__ */
 export function defineCustomElement(
   options: any,
@@ -184,6 +260,13 @@ export function defineCustomElement(
   return VueCustomElement
 }
 
+/**
+ * 定义服务端渲染的自定义元素
+ * @param {any} options - 组件选项或setup函数
+ * @param {ComponentOptions} [extraOptions] - 额外的组件选项
+ * @returns {VueElementConstructor} - 自定义元素构造函数
+ * @remarks 用于服务端渲染场景，与defineCustomElement类似，但使用createSSRApp创建应用
+ */
 /*! #__NO_SIDE_EFFECTS__ */
 export const defineSSRCustomElement = ((
   options: any,
@@ -197,56 +280,130 @@ const BaseClass = (
   typeof HTMLElement !== 'undefined' ? HTMLElement : class {}
 ) as typeof HTMLElement
 
+/**
+ * Vue自定义元素的基类
+ * @class VueElement
+ * @extends {BaseClass}
+ * @implements {ComponentCustomElementInterface}
+ * @description 所有Vue自定义元素的基类，提供了组件实例管理、属性处理等核心功能
+ */
 type InnerComponentDef = ConcreteComponent & CustomElementOptions
 
 export class VueElement
   extends BaseClass
   implements ComponentCustomElementInterface
 {
+  /**
+   * 标记这是一个Vue自定义元素
+   * @type {boolean}
+   * @public
+   */
   _isVueCE = true
   /**
-   * @internal
+   * 组件内部实例
+   * @type {ComponentInternalInstance | null}
+   * @private
    */
   _instance: ComponentInternalInstance | null = null
   /**
-   * @internal
+   * Vue应用实例
+   * @type {App | null}
+   * @private
    */
   _app: App | null = null
   /**
-   * @internal
+   * 根元素，可能是元素本身或ShadowRoot
+   * @type {Element | ShadowRoot}
+   * @private
    */
   _root: Element | ShadowRoot
   /**
-   * @internal
+   * 用于CSP的加密随机数
+   * @type {string | undefined}
+   * @private
    */
   _nonce: string | undefined = this._def.nonce
 
   /**
-   * @internal
+   *  teleport目标元素
+   * @type {HTMLElement | undefined}
+   * @private
    */
   _teleportTarget?: HTMLElement
 
+  /**
+   * 是否已连接到文档
+   * @type {boolean}
+   * @private
+   */
   private _connected = false
+  /**
+   * 组件是否已解析
+   * @type {boolean}
+   * @private
+   */
   private _resolved = false
+  /**
+   * 需要转换为数字类型的属性
+   * @type {Record<string, true> | null}
+   * @private
+   */
   private _numberProps: Record<string, true> | null = null
+  /**
+   * 样式子元素集合
+   * @type {WeakSet}
+   * @private
+   */
   private _styleChildren = new WeakSet()
+  /**
+   * 等待解析的Promise
+   * @type {Promise<void> | undefined}
+   * @private
+   */
   private _pendingResolve: Promise<void> | undefined
+  /**
+   * 父Vue自定义元素
+   * @type {VueElement | undefined}
+   * @private
+   */
   private _parent: VueElement | undefined
   /**
-   * dev only
+   * 样式元素数组（仅开发环境）
+   * @type {HTMLStyleElement[] | undefined}
+   * @private
+   * @devonly
    */
   private _styles?: HTMLStyleElement[]
   /**
-   * dev only
+   * 子元素样式映射（仅开发环境）
+   * @type {Map<string, HTMLStyleElement[]> | undefined}
+   * @private
+   * @devonly
    */
   private _childStyles?: Map<string, HTMLStyleElement[]>
+  /**
+   * 突变观察者，用于监听属性变化
+   * @type {MutationObserver | null | undefined}
+   * @private
+   */
   private _ob?: MutationObserver | null = null
-  private _slots?: Record<string, Node[]>
+  /**
+   * 插槽节点集合
+   * @type {Record<string, Node[]> | undefined}
+   * @private
+   */
+  private _slots?: Record<string, Node[] >
 
+  /**
+   * 构造函数
+   * @param {InnerComponentDef} _def - 组件定义，可能是异步包装器
+   * @param {Record<string, any>} [_props={}] - 初始属性
+   * @param {CreateAppFunction<Element>} [_createApp=createApp] - 创建应用的函数
+   * @description 初始化自定义元素，设置根元素和Shadow DOM
+   */
   constructor(
     /**
-     * Component def - note this may be an AsyncWrapper, and this._def will
-     * be overwritten by the inner component when resolved.
+     * 组件定义 - 注意这可能是一个AsyncWrapper，当解析时this._def将被内部组件覆盖
      */
     private _def: InnerComponentDef,
     private _props: Record<string, any> = {},
@@ -259,7 +416,8 @@ export class VueElement
       if (__DEV__ && this.shadowRoot) {
         warn(
           `Custom element has pre-rendered declarative shadow root but is not ` +
-            `defined as hydratable. Use \`defineSSRCustomElement\`.`,
+            `defined as hydratable. Use \`defineSSRCustomElement\`.`
+        ,
         )
       }
       if (_def.shadowRoot !== false) {
@@ -271,17 +429,22 @@ export class VueElement
     }
   }
 
+  /**
+   * 当元素连接到文档时调用的生命周期方法
+   * @returns {void}
+   * @description 处理元素连接逻辑，包括解析插槽、设置连接状态和查找父Vue元素
+   */
   connectedCallback(): void {
-    // avoid resolving component if it's not connected
+    // 避免在未连接时解析组件
     if (!this.isConnected) return
 
-    // avoid re-parsing slots if already resolved
+    // 如果尚未解析且没有shadowRoot，则解析插槽
     if (!this.shadowRoot && !this._resolved) {
       this._parseSlots()
     }
     this._connected = true
 
-    // locate nearest Vue custom element parent for provide/inject
+    // 查找最近的Vue自定义元素父节点，用于provide/inject
     let parent: Node | null = this
     while (
       (parent = parent && (parent.parentNode || (parent as ShadowRoot).host))
@@ -308,6 +471,12 @@ export class VueElement
     }
   }
 
+  /**
+   * 设置父组件
+   * @param {VueElement | undefined} [parent=this._parent] - 父Vue元素
+   * @private
+   * @description 设置组件实例的父组件，并继承父组件上下文
+   */
   private _setParent(parent = this._parent) {
     if (parent) {
       this._instance!.parent = parent._instance
@@ -315,6 +484,12 @@ export class VueElement
     }
   }
 
+  /**
+   * 继承父组件上下文
+   * @param {VueElement | undefined} [parent=this._parent] - 父Vue元素
+   * @private
+   * @description 继承父组件的provide上下文，使注入能够正常工作
+   */
   private _inheritParentContext(parent = this._parent) {
     // #13212, the provides object of the app context must inherit the provides
     // object from the parent element so we can inject values from both places
@@ -326,6 +501,11 @@ export class VueElement
     }
   }
 
+  /**
+   * 当元素从文档中移除时调用的生命周期方法
+   * @returns {void}
+   * @description 处理元素断开连接逻辑，包括清理观察者和卸载组件
+   */
   disconnectedCallback(): void {
     this._connected = false
     nextTick(() => {
@@ -334,7 +514,7 @@ export class VueElement
           this._ob.disconnect()
           this._ob = null
         }
-        // unmount
+        // 卸载
         this._app && this._app.unmount()
         if (this._instance) this._instance.ce = undefined
         this._app = this._instance = null
@@ -343,7 +523,9 @@ export class VueElement
   }
 
   /**
-   * resolve inner component definition (handle possible async component)
+   * 解析内部组件定义（处理可能的异步组件）
+   * @private
+   * @description 解析组件定义，设置初始属性，监听属性变化，并在解析完成后挂载组件
    */
   private _resolveDef() {
     if (this._pendingResolve) {
@@ -413,6 +595,12 @@ export class VueElement
     }
   }
 
+  /**
+   * 挂载组件到自定义元素
+   * @param {InnerComponentDef} def - 组件定义
+   * @private
+   * @description 创建应用实例，配置应用，创建虚拟节点并挂载组件
+   */
   private _mount(def: InnerComponentDef) {
     if ((__DEV__ || __FEATURE_PROD_DEVTOOLS__) && !def.name) {
       // @ts-expect-error
@@ -443,6 +631,12 @@ export class VueElement
     }
   }
 
+  /**
+   * 解析组件属性
+   * @param {InnerComponentDef} def - 组件定义
+   * @private
+   * @description 处理初始属性，为属性定义getter/setter
+   */
   private _resolveProps(def: InnerComponentDef) {
     const { props } = def
     const declaredPropKeys = isArray(props) ? props : Object.keys(props || {})
@@ -523,12 +717,23 @@ export class VueElement
     }
   }
 
+  /**
+   * 更新组件
+   * @private
+   * @description 创建新的虚拟节点并重新渲染组件
+   */
   private _update() {
     const vnode = this._createVNode()
     if (this._app) vnode.appContext = this._app._context
     render(vnode, this._root)
   }
 
+  /**
+   * 创建虚拟节点
+   * @returns {VNode<any, any>} - 创建的虚拟节点
+   * @private
+   * @description 为组件创建虚拟节点，并设置组件实例回调
+   */
   private _createVNode(): VNode<any, any> {
     const baseProps: VNodeProps = {}
     if (!this.shadowRoot) {
@@ -582,6 +787,13 @@ export class VueElement
     return vnode
   }
 
+  /**
+   * 应用CSS样式
+   * @param {string[] | undefined} styles - CSS样式字符串数组
+   * @param {ConcreteComponent} [owner] - 样式所属组件
+   * @private
+   * @description 将CSS样式应用到自定义元素的Shadow DOM中
+   */
   private _applyStyles(
     styles: string[] | undefined,
     owner?: ConcreteComponent,
@@ -618,7 +830,9 @@ export class VueElement
   }
 
   /**
-   * Only called when shadowRoot is false
+   * 解析插槽内容
+   * @private
+   * @description 当shadowRoot为false时调用，解析元素的子节点作为插槽内容
    */
   private _parseSlots() {
     const slots: VueElement['_slots'] = (this._slots = {})
@@ -632,7 +846,9 @@ export class VueElement
   }
 
   /**
-   * Only called when shadowRoot is false
+   * 渲染插槽内容
+   * @private
+   * @description 当shadowRoot为false时调用，将解析的插槽内容渲染到对应的slot元素位置
    */
   private _renderSlots() {
     const outlets = (this._teleportTarget || this).querySelectorAll('slot')
@@ -664,14 +880,20 @@ export class VueElement
   }
 
   /**
+   * 注入子组件样式
+   * @param {ConcreteComponent & CustomElementOptions} comp - 子组件
    * @internal
+   * @description 为子组件应用样式
    */
   _injectChildStyle(comp: ConcreteComponent & CustomElementOptions): void {
     this._applyStyles(comp.styles, comp)
   }
 
   /**
+   * 移除子组件样式
+   * @param {ConcreteComponent} comp - 子组件
    * @internal
+   * @description 移除子组件的样式（仅开发环境）
    */
   _removeChildStyle(comp: ConcreteComponent): void {
     if (__DEV__) {
