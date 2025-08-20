@@ -274,10 +274,13 @@ export function renderComponentRoot(
 }
 
 /**
- * dev only
- * In dev mode, template root level comments are rendered, which turns the
- * template into a fragment root, but we need to locate the single element
- * root for attrs and scope id processing.
+ * 获取子根节点
+ * 开发环境专用
+ * 在开发模式下，模板根级注释会被渲染，这会使模板变成fragment根节点，
+ * 但我们需要定位单个元素根节点以进行attrs和scope id处理
+ *
+ * @param vnode 虚拟节点
+ * @returns 包含找到的根节点和设置根节点函数的元组
  */
 const getChildRoot = (vnode: VNode): [VNode, SetRootFn] => {
   const rawChildren = vnode.children as VNodeArrayChildren
@@ -308,6 +311,14 @@ const getChildRoot = (vnode: VNode): [VNode, SetRootFn] => {
   return [normalizeVNode(childRoot), setRoot]
 }
 
+/**
+ * 过滤单个根节点
+ * 从子节点数组中过滤出单个非注释根节点，用于处理组件根节点的情况
+ *
+ * @param children 子节点数组
+ * @param recurse 是否递归查找
+ * @returns 找到的单个根节点，如果有多个则返回undefined
+ */
 export function filterSingleRoot(
   children: VNodeArrayChildren,
   recurse = true,
@@ -340,6 +351,14 @@ export function filterSingleRoot(
   return singleRoot
 }
 
+/**
+ * 获取函数式组件传递属性
+ * 从attrs中筛选出应该传递给函数式组件根元素的属性
+ * 包括class、style和事件监听器
+ *
+ * @param attrs 属性对象
+ * @returns 筛选后的属性对象，如果没有匹配的属性则返回undefined
+ */
 const getFunctionalFallthrough = (attrs: Data): Data | undefined => {
   let res: Data | undefined
   for (const key in attrs) {
@@ -350,6 +369,14 @@ const getFunctionalFallthrough = (attrs: Data): Data | undefined => {
   return res
 }
 
+/**
+ * 过滤模型监听器
+ * 过滤掉那些对应于已声明props的模型监听器
+ *
+ * @param attrs 属性对象
+ * @param props 标准化后的props选项
+ * @returns 过滤后的属性对象
+ */
 const filterModelListeners = (attrs: Data, props: NormalizedProps): Data => {
   const res: Data = {}
   for (const key in attrs) {
@@ -360,19 +387,39 @@ const filterModelListeners = (attrs: Data, props: NormalizedProps): Data => {
   return res
 }
 
+/**
+ * 是否为元素根节点
+ * 判断一个虚拟节点是否是元素根节点
+ *
+ * @param vnode 虚拟节点
+ * @returns 如果是元素根节点则返回true，否则返回false
+ */
 const isElementRoot = (vnode: VNode) => {
   return (
     vnode.shapeFlag & (ShapeFlags.COMPONENT | ShapeFlags.ELEMENT) ||
-    vnode.type === Comment // potential v-if branch switch
+    vnode.type === Comment // 可能是v-if分支切换
   )
 }
 
+/**
+ * 判断组件是否应该更新
+ * 决定一个组件是否需要重新渲染的核心函数
+ *
+ * @param prevVNode 上一个虚拟节点
+ * @param nextVNode 下一个虚拟节点
+ * @param optimized 是否处于优化模式
+ * @returns 如果组件需要更新则返回true，否则返回false
+ */
 export function shouldUpdateComponent(
   prevVNode: VNode,
   nextVNode: VNode,
   optimized?: boolean,
 ): boolean {
-  const { props: prevProps, children: prevChildren, component } = prevVNode
+  const {
+    props: prevProps,
+    children: prevChildren,
+    component
+  } = prevVNode
   const { props: nextProps, children: nextChildren, patchFlag } = nextVNode
   const emits = component!.emitsOptions
 
