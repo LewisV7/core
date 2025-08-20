@@ -30,9 +30,8 @@ import { shallowReadonly } from '@vue/reactivity'
 import { setTransitionHooks } from './components/BaseTransition'
 
 /**
- * dev only flag to track whether $attrs was used during render.
- * If $attrs was used during render then the warning for failed attrs
- * fallthrough can be suppressed.
+ * 开发环境专用标志，用于跟踪渲染过程中是否使用了 $attrs
+ * 如果在渲染过程中使用了 $attrs，则可以抑制 attrs 传递失败的警告
  */
 let accessedAttrs: boolean = false
 
@@ -42,6 +41,13 @@ export function markAttrsAccessed(): void {
 
 type SetRootFn = ((root: VNode) => void) | undefined
 
+/**
+ * 渲染组件根节点
+ * 负责渲染组件实例的根VNode，处理组件的各种状态和属性
+ *
+ * @param instance 组件内部实例
+ * @returns 渲染后的根VNode
+ */
 export function renderComponentRoot(
   instance: ComponentInternalInstance,
 ): VNode {

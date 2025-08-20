@@ -335,13 +335,30 @@ export function initProps(
   instance.attrs = attrs
 }
 
+/**
+ * 检查是否处于HMR(热模块替换)上下文中
+ * 递归遍历组件实例链，检查是否有组件具有HMR标识
+ *
+ * @param instance 组件内部实例或null
+ * @returns 如果处于HMR上下文中则返回true，否则返回false
+ */
 function isInHmrContext(instance: ComponentInternalInstance | null) {
   while (instance) {
     if (instance.type.__hmrId) return true
     instance = instance.parent
   }
+  return false
 }
 
+/**
+ * 更新组件属性
+ * 负责处理组件props的更新逻辑，包括优化更新和全量更新
+ *
+ * @param instance 组件内部实例
+ * @param rawProps 新的原始属性对象
+ * @param rawPrevProps 旧的原始属性对象
+ * @param optimized 是否为优化更新
+ */
 export function updateProps(
   instance: ComponentInternalInstance,
   rawProps: Data | null,
@@ -476,6 +493,15 @@ export function updateProps(
   }
 }
 
+/**
+ * 设置完整的组件属性
+ * 负责将原始属性(rawProps)分配到对应的props和attrs对象中
+ *
+ * @param instance 组件内部实例
+ * @param rawProps 原始属性对象，可以为null
+ * @param props 处理后的属性对象，用于存储声明过的props
+ * @param attrs 非prop属性对象，用于存储未声明的属性
+ */
 function setFullProps(
   instance: ComponentInternalInstance,
   rawProps: Data | null,
@@ -553,6 +579,18 @@ function setFullProps(
   return hasAttrsChanged
 }
 
+/**
+ * 解析属性值
+ * 负责处理单个prop值的解析、默认值应用和类型转换
+ *
+ * @param options 标准化的props选项
+ * @param props 当前props对象
+ * @param key 当前处理的prop键
+ * @param value 传入的prop值
+ * @param instance 组件内部实例
+ * @param isAbsent 是否缺失该prop
+ * @returns 解析后的prop值
+ */
 function resolvePropValue(
   options: NormalizedProps,
   props: Data,
@@ -609,8 +647,21 @@ function resolvePropValue(
   return value
 }
 
+/**
+ * 混入Props缓存
+ * 用于缓存混入组件的标准化props选项，避免重复计算
+ */
 const mixinPropsCache = new WeakMap<ConcreteComponent, NormalizedPropsOptions>()
 
+/**
+ * 标准化组件Props选项
+ * 负责将原始props选项转换为标准化格式，处理混入、继承的props和类型转换
+ *
+ * @param comp 具体组件
+ * @param appContext 应用上下文
+ * @param asMixin 是否作为混入处理
+ * @returns 标准化的props选项和需要类型转换的prop键数组的元组
+ */
 export function normalizePropsOptions(
   comp: ConcreteComponent,
   appContext: AppContext,
@@ -719,6 +770,13 @@ export function normalizePropsOptions(
   return res
 }
 
+/**
+ * 验证属性名称
+ * 检查prop名称是否有效，不能以$开头或使用保留属性名
+ *
+ * @param key 要验证的属性名
+ * @returns 如果属性名有效则返回true，否则返回false
+ */
 function validatePropName(key: string) {
   if (key[0] !== '$' && !isReservedProp(key)) {
     return true
@@ -728,21 +786,26 @@ function validatePropName(key: string) {
   return false
 }
 
-// dev only
-// use function string name to check type constructors
-// so that it works across vms / iframes.
+/**
+ * 获取类型名称
+ * 用于获取类型构造函数的名称，支持跨虚拟机/iframe工作
+ * 仅在开发环境中使用
+ *
+ * @param ctor 类型构造函数或Prop选项
+ * @returns 类型名称字符串
+ */
 function getType(ctor: Prop<any> | null): string {
-  // Early return for null to avoid unnecessary computations
+  // 提前返回null情况，避免不必要的计算
   if (ctor === null) {
     return 'null'
   }
 
-  // Avoid using regex for common cases by checking the type directly
+  // 直接检查类型，避免对常见情况使用正则表达式
   if (typeof ctor === 'function') {
-    // Using name property to avoid converting function to string
+    // 使用name属性避免将函数转换为字符串
     return ctor.name || ''
   } else if (typeof ctor === 'object') {
-    // Attempting to directly access constructor name if possible
+    // 如果可能，尝试直接访问构造函数名称
     const name = ctor.constructor && ctor.constructor.name
     return name || ''
   }
@@ -752,7 +815,13 @@ function getType(ctor: Prop<any> | null): string {
 }
 
 /**
- * dev only
+ * 验证组件属性
+ * 对组件接收的属性进行全面验证，包括类型检查、必填项检查和自定义验证器
+ * 仅在开发环境中使用
+ *
+ * @param rawProps 原始属性对象
+ * @param props 处理后的属性对象
+ * @param instance 组件内部实例
  */
 function validateProps(
   rawProps: Data,
@@ -776,7 +845,15 @@ function validateProps(
 }
 
 /**
- * dev only
+ * 验证单个属性
+ * 对单个组件属性进行详细验证，包括必填性、类型检查和自定义验证器验证
+ * 仅在开发环境中使用
+ *
+ * @param name 属性名称
+ * @param value 属性值
+ * @param prop 属性选项配置
+ * @param props 所有属性的集合
+ * @param isAbsent 属性是否缺失
  */
 function validateProp(
   name: string,
@@ -827,7 +904,13 @@ type AssertionResult = {
 }
 
 /**
- * dev only
+ * 断言类型
+ * 检查值是否符合指定的类型，并返回断言结果
+ * 仅在开发环境中使用
+ *
+ * @param value 要检查的值
+ * @param type 预期的类型构造函数
+ * @returns 包含有效性和预期类型的对象
  */
 function assertType(
   value: unknown,
@@ -858,7 +941,14 @@ function assertType(
 }
 
 /**
- * dev only
+ * 获取无效类型消息
+ * 生成属性类型验证失败的错误消息
+ * 仅在开发环境中使用
+ *
+ * @param name 属性名称
+ * @param value 属性值
+ * @param expectedTypes 预期的类型列表
+ * @returns 格式化的错误消息字符串
  */
 function getInvalidTypeMessage(
   name: string,
@@ -895,7 +985,13 @@ function getInvalidTypeMessage(
 }
 
 /**
- * dev only
+ * 格式化值
+ * 根据类型格式化值，使其在错误消息中更易于阅读
+ * 仅在开发环境中使用
+ *
+ * @param value 要格式化的值
+ * @param type 值的类型
+ * @returns 格式化后的字符串
  */
 function styleValue(value: unknown, type: string): string {
   if (type === 'String') {
