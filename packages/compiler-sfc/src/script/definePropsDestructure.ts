@@ -1,3 +1,7 @@
+/**
+ * 处理defineProps解构声明的工具函数
+ * 包含props解构的处理和转换逻辑
+ */
 import type {
   BlockStatement,
   Expression,
@@ -24,6 +28,11 @@ import { isCallOf, resolveObjectKey } from './utils'
 import type { ScriptCompileContext } from './context'
 import { DEFINE_PROPS } from './defineProps'
 
+/**
+ * 处理props解构声明
+ * @param ctx 脚本编译上下文
+ * @param declId 对象模式的解构标识符
+ */
 export function processPropsDestructure(
   ctx: ScriptCompileContext,
   declId: ObjectPattern,
@@ -34,8 +43,15 @@ export function processPropsDestructure(
     return
   }
 
+  // 存储props解构声明
   ctx.propsDestructureDecl = declId
 
+  /**
+   * 注册props绑定
+   * @param key props的键名
+   * @param local 本地变量名
+   * @param defaultValue 默认值表达式
+   */
   const registerBinding = (
     key: string,
     local: string,
@@ -43,12 +59,14 @@ export function processPropsDestructure(
   ) => {
     ctx.propsDestructuredBindings[key] = { local, default: defaultValue }
     if (local !== key) {
+      // 标记为props别名
       ctx.bindingMetadata[local] = BindingTypes.PROPS_ALIASED
       ;(ctx.bindingMetadata.__propsAliases ||
         (ctx.bindingMetadata.__propsAliases = {}))[local] = key
     }
   }
 
+  // 遍历所有解构属性
   for (const prop of declId.properties) {
     if (prop.type === 'ObjectProperty') {
       const propKey = resolveObjectKey(prop.key, prop.computed)
@@ -61,7 +79,7 @@ export function processPropsDestructure(
       }
 
       if (prop.value.type === 'AssignmentPattern') {
-        // default value { foo = 123 }
+        // 处理默认值 { foo = 123 }
         const { left, right } = prop.value
         if (left.type !== 'Identifier') {
           ctx.error(
@@ -71,7 +89,7 @@ export function processPropsDestructure(
         }
         registerBinding(propKey, left.name, right)
       } else if (prop.value.type === 'Identifier') {
-        // simple destructure
+        // 简单解构
         registerBinding(propKey, prop.value.name)
       } else {
         ctx.error(
@@ -80,21 +98,26 @@ export function processPropsDestructure(
         )
       }
     } else {
-      // rest spread
+      // 处理剩余展开
       ctx.propsDestructureRestId = (prop.argument as Identifier).name
-      // register binding
-      ctx.bindingMetadata[ctx.propsDestructureRestId] =
+      // 注册绑定
+      ctx.bindingMetadata[ctx.propsDestructureRestId] = 
         BindingTypes.SETUP_REACTIVE_CONST
     }
   }
 }
 
 /**
- * true -> prop binding
- * false -> local binding
+ * 作用域记录
+ * true表示prop绑定，false表示本地绑定
  */
 type Scope = Record<string, boolean>
 
+/**
+ * 转换解构的props
+ * @param ctx 脚本编译上下文
+ * @param vueImportAliases Vue导入别名
+ */
 export function transformDestructuredProps(
   ctx: ScriptCompileContext,
   vueImportAliases: Record<string, string>,
@@ -103,28 +126,39 @@ export function transformDestructuredProps(
     return
   }
 
+  // 初始化根作用域
   const rootScope: Scope = Object.create(null)
   const scopeStack: Scope[] = [rootScope]
   let currentScope: Scope = rootScope
+  // 排除的标识符集合
   const excludedIds = new WeakSet<Identifier>()
+  // 父节点栈
   const parentStack: Node[] = []
+  // 本地props名称到公共名称的映射
   const propsLocalToPublicMap: Record<string, string> = Object.create(null)
 
+  // 初始化根作用域的props绑定
   for (const key in ctx.propsDestructuredBindings) {
     const { local } = ctx.propsDestructuredBindings[key]
     rootScope[local] = true
     propsLocalToPublicMap[local] = key
   }
 
+  /** 进入新作用域 */
   function pushScope() {
     scopeStack.push((currentScope = Object.create(currentScope)))
   }
 
+  /** 退出当前作用域 */
   function popScope() {
     scopeStack.pop()
     currentScope = scopeStack[scopeStack.length - 1] || null
   }
 
+  /**
+   * 注册本地绑定
+   * @param id 标识符
+   */
   function registerLocalBinding(id: Identifier) {
     excludedIds.add(id)
     if (currentScope) {
@@ -137,6 +171,11 @@ export function transformDestructuredProps(
     }
   }
 
+  /**
+   * 遍历作用域
+   * @param node 程序或块语句节点
+   * @param isRoot 是否为根作用域
+   */
   function walkScope(node: Program | BlockStatement, isRoot = false) {
     for (const stmt of node.body) {
       if (stmt.type === 'VariableDeclaration') {
@@ -167,17 +206,21 @@ export function transformDestructuredProps(
     }
   }
 
+  /**
+   * 遍历变量声明
+   * @param stmt 变量声明节点
+   * @param isRoot 是否为根作用域
+   */
   function walkVariableDeclaration(stmt: VariableDeclaration, isRoot = false) {
     if (stmt.declare) {
       return
     }
     for (const decl of stmt.declarations) {
-      const isDefineProps =
+      const isDefineProps = 
         isRoot && decl.init && isCallOf(unwrapTSNode(decl.init), 'defineProps')
       for (const id of extractIdentifiers(decl.id)) {
         if (isDefineProps) {
-          // for defineProps destructure, only exclude them since they
-          // are already passed in as knownProps
+          // 对于defineProps解构，仅排除它们，因为它们已经作为knownProps传入
           excludedIds.add(id)
         } else {
           registerLocalBinding(id)
@@ -186,6 +229,12 @@ export function transformDestructuredProps(
     }
   }
 
+  /**
+   * 重写标识符
+   * @param id 标识符节点
+   * @param parent 父节点
+   * @param parentStack 父节点栈
+   */
   function rewriteId(id: Identifier, parent: Node, parentStack: Node[]) {
     if (
       (parent.type === 'AssignmentExpression' && id === parent.left) ||
@@ -195,13 +244,12 @@ export function transformDestructuredProps(
     }
 
     if (isStaticProperty(parent) && parent.shorthand) {
-      // let binding used in a property shorthand
-      // skip for destructure patterns
+      // 处理属性简写
+      // { prop } -> { prop: __props.prop }
       if (
         !(parent as any).inPattern ||
         isInDestructureAssignment(parent, parentStack)
       ) {
-        // { prop } -> { prop: __props.prop }
         ctx.s.appendLeft(
           id.end! + ctx.startOffset!,
           `: ${genPropsAccessExp(propsLocalToPublicMap[id.name])}`,
@@ -217,6 +265,12 @@ export function transformDestructuredProps(
     }
   }
 
+  /**
+   * 检查使用情况
+   * @param node 节点
+   * @param method 方法名
+   * @param alias 别名
+   */
   function checkUsage(node: Node, method: string, alias = method) {
     if (isCallOf(node, alias)) {
       const arg = unwrapTSNode(node.arguments[0])
