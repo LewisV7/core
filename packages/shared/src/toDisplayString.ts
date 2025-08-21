@@ -1,4 +1,5 @@
-// enums are compiled away via custom transform so no real dependency here
+// 枚举通过自定义转换被编译掉，因此这里没有实际依赖
+// 此文件提供将值转换为显示字符串的功能，主要用于处理模板中的 {{ 插值表达式 }}
 import { ReactiveFlags } from '@vue/reactivity'
 import {
   isArray,
@@ -12,14 +13,26 @@ import {
   objectToString,
 } from './general'
 
-// can't use isRef here since @vue/shared has no deps
+/**
+ * 判断一个值是否为 Ref 对象
+ * @param val 要检查的值
+ * @returns 如果是 Ref 对象则返回 true，否则返回 false
+ */
 const isRef = (val: any): val is { value: unknown } => {
   return !!(val && val[ReactiveFlags.IS_REF] === true)
 }
 
 /**
- * For converting {{ interpolation }} values to displayed strings.
- * @private
+ * 将 {{ 插值表达式 }} 的值转换为显示字符串
+ * @param val 要转换的值，可以是任何类型
+ * @returns 转换后的字符串
+ * @example
+ * ```
+ * toDisplayString('hello') // 'hello'
+ * toDisplayString(123) // '123'
+ * toDisplayString({ name: 'vue' }) // '{"name":"vue"}'
+ * toDisplayString([1, 2, 3]) // '[1, 2, 3]'
+ * ```
  */
 export const toDisplayString = (val: unknown): string => {
   return isString(val)
@@ -35,6 +48,12 @@ export const toDisplayString = (val: unknown): string => {
         : String(val)
 }
 
+/**
+ * JSON.stringify 的替换函数，用于处理特殊类型的值
+ * @param _key 键名（未使用）
+ * @param val 要处理的值
+ * @returns 处理后的值
+ */
 const replacer = (_key: string, val: unknown): any => {
   if (isRef(val)) {
     return replacer(_key, val.value)
@@ -61,6 +80,12 @@ const replacer = (_key: string, val: unknown): any => {
   return val
 }
 
+/**
+ * 将 Symbol 类型的值转换为字符串
+ * @param v 要转换的值
+ * @param i 索引或标识符（可选）
+ * @returns 转换后的字符串
+ */
 const stringifySymbol = (v: unknown, i: number | string = ''): any =>
   // Symbol.description in es2019+ so we need to cast here to pass
   // the lib: es2016 check

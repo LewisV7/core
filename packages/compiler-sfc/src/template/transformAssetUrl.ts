@@ -1,3 +1,7 @@
+/**
+ * 资源URL转换工具
+ * 用于将模板中的相对资源URL转换为导入或绝对URL
+ */
 import path from 'path'
 import {
   ConstantTypes,
@@ -17,23 +21,35 @@ import {
 } from './templateUtils'
 import { isArray } from '@vue/shared'
 
+/**
+ * 资源URL标签配置
+ * 定义哪些标签的哪些属性需要进行资源URL转换
+ */
 export interface AssetURLTagConfig {
   [name: string]: string[]
 }
 
+/**
+ * 资源URL转换选项
+ */
 export interface AssetURLOptions {
   /**
-   * If base is provided, instead of transforming relative asset urls into
-   * imports, they will be directly rewritten to absolute urls.
+   * 如果提供了base，相对资源URL将被直接重写为绝对URL，而不是转换为导入
    */
   base?: string | null
   /**
-   * If true, also processes absolute urls.
+   * 如果为true，也会处理绝对URL
    */
   includeAbsolute?: boolean
+  /**
+   * 定义哪些标签的哪些属性需要进行资源URL转换
+   */
   tags?: AssetURLTagConfig
 }
 
+/**
+ * 默认资源URL转换选项
+ */
 export const defaultAssetUrlOptions: Required<AssetURLOptions> = {
   base: null,
   includeAbsolute: false,
@@ -46,6 +62,11 @@ export const defaultAssetUrlOptions: Required<AssetURLOptions> = {
   },
 }
 
+/**
+ * 规范化资源URL转换选项
+ * @param {AssetURLOptions | AssetURLTagConfig} options - 输入选项
+ * @returns {Required<AssetURLOptions>} 规范化后的选项
+ */
 export const normalizeOptions = (
   options: AssetURLOptions | AssetURLTagConfig,
 ): Required<AssetURLOptions> => {
@@ -62,6 +83,11 @@ export const normalizeOptions = (
   }
 }
 
+/**
+ * 创建带有指定选项的资源URL转换函数
+ * @param {Required<AssetURLOptions>} options - 资源URL转换选项
+ * @returns {NodeTransform} 节点转换函数
+ */
 export const createAssetUrlTransformWithOptions = (
   options: Required<AssetURLOptions>,
 ): NodeTransform => {
@@ -70,17 +96,20 @@ export const createAssetUrlTransformWithOptions = (
 }
 
 /**
- * A `@vue/compiler-core` plugin that transforms relative asset urls into
- * either imports or absolute urls.
+ * `@vue/compiler-core`插件，用于将相对资源URL转换为导入或绝对URL
  *
  * ``` js
- * // Before
+ * // 转换前
  * createVNode('img', { src: './logo.png' })
  *
- * // After
+ * // 转换后
  * import _imports_0 from './logo.png'
  * createVNode('img', { src: _imports_0 })
  * ```
+ * @param {Node} node - 节点
+ * @param {TransformContext} context - 转换上下文
+ * @param {AssetURLOptions} [options=defaultAssetUrlOptions] - 转换选项
+ * @returns {void} 无返回值
  */
 export const transformAssetUrl: NodeTransform = (
   node,
@@ -147,6 +176,14 @@ export const transformAssetUrl: NodeTransform = (
   }
 }
 
+/**
+ * 获取导入表达式
+ * @param {string | null} path - 文件路径
+ * @param {string | null} hash - URL哈希值
+ * @param {SourceLocation} loc - 源代码位置
+ * @param {TransformContext} context - 转换上下文
+ * @returns {ExpressionNode} 表达式节点
+ */
 function getImportsExpressionExp(
   path: string | null,
   hash: string | null,

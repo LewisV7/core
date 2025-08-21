@@ -1,3 +1,8 @@
+/**
+ * 单文件组件(SFC)解析器
+ * 负责解析.vue文件内容，提取模板、脚本、样式等区块
+ * 并生成SFC描述符供后续编译使用
+ */
 import {
   type BindingMetadata,
   type CodegenSourceMapGenerator,
@@ -22,6 +27,9 @@ import { genCacheKey } from '@vue/shared'
 
 export const DEFAULT_FILENAME = 'anonymous.vue'
 
+/**
+ * SFC解析选项
+ */
 export interface SFCParseOptions {
   filename?: string
   sourceMap?: boolean
@@ -32,6 +40,9 @@ export interface SFCParseOptions {
   templateParseOptions?: ParserOptions
 }
 
+/**
+ * SFC区块基础接口
+ */
 export interface SFCBlock {
   type: string
   content: string
@@ -42,11 +53,17 @@ export interface SFCBlock {
   src?: string
 }
 
+/**
+ * 模板区块接口
+ */
 export interface SFCTemplateBlock extends SFCBlock {
   type: 'template'
   ast?: RootNode
 }
 
+/**
+ * 脚本区块接口
+ */
 export interface SFCScriptBlock extends SFCBlock {
   type: 'script'
   setup?: string | boolean
@@ -63,12 +80,19 @@ export interface SFCScriptBlock extends SFCBlock {
   deps?: string[]
 }
 
+/**
+ * 样式区块接口
+ */
 export interface SFCStyleBlock extends SFCBlock {
   type: 'style'
   scoped?: boolean
   module?: string | boolean
 }
 
+/**
+ * SFC描述符接口
+ * 包含单文件组件的所有信息
+ */
 export interface SFCDescriptor {
   filename: string
   source: string
@@ -95,15 +119,28 @@ export interface SFCDescriptor {
   shouldForceReload: (prevImports: Record<string, ImportBinding>) => boolean
 }
 
+/**
+ * SFC解析结果接口
+ */
 export interface SFCParseResult {
   descriptor: SFCDescriptor
   errors: (CompilerError | SyntaxError)[]
 }
 
+/**
+ * 解析缓存
+ * 用于缓存已解析的SFC结果，提高性能
+ */
 export const parseCache:
   | Map<string, SFCParseResult>
   | LRUCache<string, SFCParseResult> = createCache<SFCParseResult>()
 
+/**
+ * 解析单文件组件(SFC)内容
+ * @param {string} source - SFC文件内容字符串
+ * @param {SFCParseOptions} [options={}] - 解析选项
+ * @returns {SFCParseResult} 解析结果，包含SFC描述符和错误信息
+ */
 export function parse(
   source: string,
   options: SFCParseOptions = {},
@@ -298,6 +335,12 @@ export function parse(
   return result
 }
 
+/**
+ * 创建重复区块错误
+ * @param {ElementNode} node - 元素节点
+ * @param {boolean} [isScriptSetup=false] - 是否为script setup区块
+ * @returns {CompilerError} 编译错误对象
+ */
 function createDuplicateBlockError(
   node: ElementNode,
   isScriptSetup = false,
@@ -311,6 +354,13 @@ function createDuplicateBlockError(
   return err
 }
 
+/**
+ * 创建SFC区块对象
+ * @param {ElementNode} node - 元素节点
+ * @param {string} source - SFC文件内容
+ * @param {SFCParseOptions['pad']} pad - 填充选项
+ * @returns {SFCBlock} SFC区块对象
+ */
 function createBlock(
   node: ElementNode,
   source: string,
@@ -354,6 +404,16 @@ const splitRE = /\r?\n/g
 const emptyRE = /^(?:\/\/)?\s*$/
 const replaceRE = /./g
 
+/**
+ * 生成源映射
+ * @param {string} filename - 文件名
+ * @param {string} source - 源文件内容
+ * @param {string} generated - 生成的内容
+ * @param {string} sourceRoot - 源文件根目录
+ * @param {number} lineOffset - 行偏移量
+ * @param {number} columnOffset - 列偏移量
+ * @returns {RawSourceMap} 源映射对象
+ */
 function generateSourceMap(
   filename: string,
   source: string,
@@ -389,6 +449,13 @@ function generateSourceMap(
   return map.toJSON()
 }
 
+/**
+ * 填充内容
+ * @param {string} content - 内容
+ * @param {SFCBlock} block - SFC区块
+ * @param {SFCParseOptions['pad']} pad - 填充选项
+ * @returns {string} 填充后的内容
+ */
 function padContent(
   content: string,
   block: SFCBlock,
@@ -404,6 +471,11 @@ function padContent(
   }
 }
 
+/**
+ * 检查节点是否有src属性
+ * @param {ElementNode} node - 元素节点
+ * @returns {boolean} 是否有src属性
+ */
 function hasSrc(node: ElementNode) {
   return node.props.some(p => {
     if (p.type !== NodeTypes.ATTRIBUTE) {
@@ -414,8 +486,10 @@ function hasSrc(node: ElementNode) {
 }
 
 /**
- * Returns true if the node has no children
- * once the empty text nodes (trimmed content) have been filtered out.
+ * 检查节点是否为空
+ * 当节点没有子节点或只有空文本节点时返回true
+ * @param {ElementNode} node - 元素节点
+ * @returns {boolean} 是否为空
  */
 function isEmpty(node: ElementNode) {
   for (let i = 0; i < node.children.length; i++) {
@@ -428,9 +502,12 @@ function isEmpty(node: ElementNode) {
 }
 
 /**
- * Note: this comparison assumes the prev/next script are already identical,
- * and only checks the special case where <script setup lang="ts"> unused import
- * pruning result changes due to template changes.
+ * 检查是否应该强制HMR重载
+ * 注意：此比较假设前后脚本已相同，仅检查<script setup lang="ts">中未使用的导入
+ * 因模板更改而导致修剪结果变化的特殊情况
+ * @param {Record<string, ImportBinding>} prevImports - 先前的导入绑定
+ * @param {SFCDescriptor} next - 下一个SFC描述符
+ * @returns {boolean} 是否应该强制重载
  */
 export function hmrShouldReload(
   prevImports: Record<string, ImportBinding>,

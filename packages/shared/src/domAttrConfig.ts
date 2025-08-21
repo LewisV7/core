@@ -1,9 +1,9 @@
+// 导入makeMap工具函数，用于创建高效的映射函数
 import { makeMap } from './makeMap'
 
 /**
- * On the client we only need to offer special cases for boolean attributes that
- * have different names from their corresponding dom properties:
- * - itemscope -> N/A
+ * 在客户端，我们只需要为名称与对应DOM属性不同的布尔属性提供特殊处理：
+ * - itemscope -> 无对应DOM属性
  * - allowfullscreen -> allowFullscreen
  * - formnovalidate -> formNoValidate
  * - ismap -> isMap
@@ -11,12 +11,23 @@ import { makeMap } from './makeMap'
  * - novalidate -> noValidate
  * - readonly -> readOnly
  */
+// 特殊布尔属性列表，这些属性在DOM中的名称与在Vue中的名称不同
 const specialBooleanAttrs = `itemscope,allowfullscreen,formnovalidate,ismap,nomodule,novalidate,readonly`
-export const isSpecialBooleanAttr: (key: string) => boolean =
+/**
+ * 检查一个属性是否为特殊布尔属性
+ * @param key 属性名
+ * @returns 是否为特殊布尔属性
+ */
+export const isSpecialBooleanAttr: (key: string) => boolean = 
   /*@__PURE__*/ makeMap(specialBooleanAttrs)
 
 /**
- * The full list is needed during SSR to produce the correct initial markup.
+ * 在SSR期间需要完整列表以生成正确的初始标记
+ */
+/**
+ * 检查一个属性是否为布尔属性
+ * @param key 属性名
+ * @returns 是否为布尔属性
  */
 export const isBooleanAttr: (key: string) => boolean = /*@__PURE__*/ makeMap(
   specialBooleanAttrs +
@@ -26,16 +37,23 @@ export const isBooleanAttr: (key: string) => boolean = /*@__PURE__*/ makeMap(
 )
 
 /**
- * Boolean attributes should be included if the value is truthy or ''.
- * e.g. `<select multiple>` compiles to `{ multiple: '' }`
+ * 如果值为真值或空字符串，则应包含布尔属性
+ * 例如：`<select multiple>` 编译为 `{ multiple: '' }`
  */
 export function includeBooleanAttr(value: unknown): boolean {
   return !!value || value === ''
 }
 
+// 匹配不安全属性名的正则表达式，包含各种分隔符和引号
 const unsafeAttrCharRE = /[>/="'\u0009\u000a\u000c\u0020]/
+// 属性验证缓存，用于缓存属性名的安全性检查结果
 const attrValidationCache: Record<string, boolean> = {}
 
+/**
+ * 检查属性名在SSR中是否安全
+ * @param name 属性名
+ * @returns 是否安全
+ */
 export function isSSRSafeAttrName(name: string): boolean {
   if (attrValidationCache.hasOwnProperty(name)) {
     return attrValidationCache[name]
@@ -47,6 +65,9 @@ export function isSSRSafeAttrName(name: string): boolean {
   return (attrValidationCache[name] = !isUnsafe)
 }
 
+/**
+ * 属性映射表，将Vue props名称映射到HTML属性名称
+ */
 export const propsToAttrMap: Record<string, string | undefined> = {
   acceptCharset: 'accept-charset',
   className: 'class',
@@ -55,10 +76,15 @@ export const propsToAttrMap: Record<string, string | undefined> = {
 }
 
 /**
- * Known attributes, this is used for stringification of runtime static nodes
- * so that we don't stringify bindings that cannot be set from HTML.
- * Don't also forget to allow `data-*` and `aria-*`!
- * Generated from https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes
+ * 已知属性，用于运行时静态节点的字符串化
+ * 这样我们就不会字符串化那些不能从HTML设置的绑定
+ * 别忘了允许 `data-*` 和 `aria-*` 属性！
+ * 从 https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes 生成
+ */
+/**
+ * 检查一个属性是否为已知的HTML属性
+ * @param key 属性名
+ * @returns 是否为已知HTML属性
  */
 export const isKnownHtmlAttr: (key: string) => boolean = /*@__PURE__*/ makeMap(
   `accept,accept-charset,accesskey,action,align,allow,alt,async,` +
@@ -79,7 +105,12 @@ export const isKnownHtmlAttr: (key: string) => boolean = /*@__PURE__*/ makeMap(
 )
 
 /**
- * Generated from https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute
+ * 从 https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute 生成
+ */
+/**
+ * 检查一个属性是否为已知的SVG属性
+ * @param key 属性名
+ * @returns 是否为已知SVG属性
  */
 export const isKnownSvgAttr: (key: string) => boolean = /*@__PURE__*/ makeMap(
   `xmlns,accent-height,accumulate,additive,alignment-baseline,alphabetic,amplitude,` +
@@ -124,7 +155,12 @@ export const isKnownSvgAttr: (key: string) => boolean = /*@__PURE__*/ makeMap(
 )
 
 /**
- * Generated from https://developer.mozilla.org/en-US/docs/Web/MathML/Attribute
+ * 从 https://developer.mozilla.org/en-US/docs/Web/MathML/Attribute 生成
+ */
+/**
+ * 检查一个属性是否为已知的MathML属性
+ * @param key 属性名
+ * @returns 是否为已知MathML属性
  */
 export const isKnownMathMLAttr: (key: string) => boolean =
   /*@__PURE__*/ makeMap(
@@ -143,7 +179,10 @@ export const isKnownMathMLAttr: (key: string) => boolean =
   )
 
 /**
- * Shared between server-renderer and runtime-core hydration logic
+ * 检查属性值是否可渲染
+ * @param value 属性值
+ * @returns 是否可渲染
+ * 在服务器渲染器和运行时核心水合逻辑之间共享
  */
 export function isRenderableAttrValue(value: unknown): boolean {
   if (value == null) {

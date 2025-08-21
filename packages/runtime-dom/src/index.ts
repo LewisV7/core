@@ -1,3 +1,8 @@
+/*
+ * Vue 运行时 DOM 模块
+ * 提供与浏览器 DOM 交互相关的核心功能，包括创建应用实例、渲染虚拟 DOM、
+ * 处理 DOM 元素更新以及服务端渲染的水合功能等。
+ */
 import {
   type App,
   type CreateAppFunction,
@@ -34,9 +39,9 @@ import type { VOnDirective } from './directives/vOn'
 import type { VModelDirective } from './directives/vModel'
 
 /**
- * This is a stub implementation to prevent the need to use dom types.
+ * 为避免直接依赖 DOM 类型而提供的存根实现
  *
- * To enable proper types, add `"dom"` to `"lib"` in your `tsconfig.json`.
+ * 要启用正确的类型检查，请在 tsconfig.json 中将 "dom" 添加到 "lib" 配置中。
  */
 type DomStub = {}
 type DomType<T> = typeof globalThis extends { window: unknown } ? T : DomStub
@@ -65,12 +70,18 @@ declare module '@vue/runtime-core' {
 
 const rendererOptions = /*@__PURE__*/ extend({ patchProp }, nodeOps)
 
-// lazy create the renderer - this makes core renderer logic tree-shakable
-// in case the user only imports reactivity utilities from Vue.
+/**
+ * 延迟创建渲染器 - 这使得核心渲染器逻辑可以被 tree-shaking
+ * 以防止用户仅从 Vue 导入响应式工具时包含不必要的渲染代码。
+ */
 let renderer: Renderer<Element | ShadowRoot> | HydrationRenderer
 
 let enabledHydration = false
 
+/**
+ * 确保渲染器实例已创建
+ * @returns 渲染器实例
+ */
 function ensureRenderer() {
   return (
     renderer ||
@@ -78,6 +89,10 @@ function ensureRenderer() {
   )
 }
 
+/**
+ * 确保水合渲染器实例已创建
+ * @returns 水合渲染器实例
+ */
 function ensureHydrationRenderer() {
   renderer = enabledHydration
     ? renderer
@@ -87,14 +102,45 @@ function ensureHydrationRenderer() {
 }
 
 // use explicit type casts here to avoid import() calls in rolled-up d.ts
+/**
+ * 渲染虚拟 DOM 到指定容器
+ * @param vnode 要渲染的虚拟节点
+ * @param container 渲染目标容器
+ * @param isSVG 是否在 SVG 上下文中渲染
+ * @param slotScopeIds 插槽作用域 ID
+ * @param optimized 是否启用优化模式
+ */
 export const render = ((...args) => {
   ensureRenderer().render(...args)
 }) as RootRenderFunction<Element | ShadowRoot>
 
+/**
+ * 服务端渲染水合功能
+ * 将服务端渲染的 HTML 节点与客户端生成的虚拟 DOM 进行绑定
+ * @param vnode 虚拟节点
+ * @param container 容器元素
+ * @param isSVG 是否在 SVG 上下文中水合
+ * @param slotScopeIds 插槽作用域 ID
+ * @param optimized 是否启用优化模式
+ */
 export const hydrate = ((...args) => {
   ensureHydrationRenderer().hydrate(...args)
 }) as RootHydrateFunction
 
+/**
+ * 创建一个新的应用实例
+ * @param rootComponent 根组件
+ * @param rootProps 传递给根组件的属性
+ * @returns 应用实例
+ * @example
+ * ```
+ * import { createApp } from 'vue'
+ * import App from './App.vue'
+ * 
+ * const app = createApp(App)
+ * app.mount('#app')
+ * ```
+ */
 export const createApp = ((...args) => {
   const app = ensureRenderer().createApp(...args)
 
@@ -145,6 +191,12 @@ export const createApp = ((...args) => {
   return app
 }) as CreateAppFunction<Element>
 
+/**
+ * 创建一个用于服务端渲染的应用实例
+ * @param rootComponent 根组件
+ * @param rootProps 传递给根组件的属性
+ * @returns 应用实例
+ */
 export const createSSRApp = ((...args) => {
   const app = ensureHydrationRenderer().createApp(...args)
 
@@ -164,6 +216,11 @@ export const createSSRApp = ((...args) => {
   return app
 }) as CreateAppFunction<Element>
 
+/**
+ * 解析根容器的命名空间
+ * @param container 容器元素
+ * @returns 命名空间 ('svg', 'mathml' 或 undefined)
+ */
 function resolveRootNamespace(
   container: Element | ShadowRoot,
 ): ElementNamespace {
@@ -178,6 +235,11 @@ function resolveRootNamespace(
   }
 }
 
+/**
+ * 注入原生标签检查功能
+ * @param app 应用实例
+ * @internal
+ */
 function injectNativeTagCheck(app: App) {
   // Inject `isNativeTag`
   // this is used for component name validation (dev only)
@@ -187,7 +249,12 @@ function injectNativeTagCheck(app: App) {
   })
 }
 
-// dev only
+/**
+ * 注入编译器选项检查
+ * 开发环境下用于检查不支持的编译器选项
+ * @param app 应用实例
+ * @internal
+ */
 function injectCompilerOptionsCheck(app: App) {
   if (isRuntimeOnly()) {
     const isCustomElement = app.config.isCustomElement

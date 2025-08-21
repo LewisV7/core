@@ -1,6 +1,6 @@
 /**
- * Normalize CSS var value created by `v-bind` in `<style>` block
- * See https://github.com/vuejs/core/pull/12461#issuecomment-2495804664
+ * 标准化由 `<style>` 块中的 `v-bind` 创建的 CSS 变量值
+ * 详情请参阅 https://github.com/vuejs/core/pull/12461#issuecomment-2495804664
  */
 export function normalizeCssVarValue(value: unknown): string {
   if (value == null) {

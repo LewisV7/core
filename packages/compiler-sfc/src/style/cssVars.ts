@@ -1,3 +1,8 @@
+/**
+ * CSS 变量处理工具
+ * 用于处理 Vue 单文件组件中 CSS 变量与 JavaScript 表达式的绑定
+ * 提供 CSS 变量的解析、生成和转换功能
+ */
 import {
   type BindingMetadata,
   NodeTypes,
@@ -12,8 +17,28 @@ import type { PluginCreator } from 'postcss'
 import hash from 'hash-sum'
 import { getEscapedCssVarName } from '@vue/shared'
 
+/**
+ * CSS 变量助手函数名称
+ * @constant {string}
+ */
 export const CSS_VARS_HELPER = `useCssVars`
 
+/**
+ * 从变量列表生成 CSS 变量对象代码
+ * @param {string[]} vars - CSS 变量名称列表
+ * @param {string} id - 组件 ID
+ * @param {boolean} isProd - 是否为生产环境
+ * @param {boolean} [isSSR=false] - 是否为服务端渲染
+ * @returns {string} 生成的 CSS 变量对象代码
+ * @example
+ * ```javascript
+ * genCssVarsFromList(['color', 'size'], 'comp-1', false)
+ * // 返回: "{
+ * //   "comp-1-color": (color),
+ * //   "comp-1-size": (size)
+ * // }"
+ * ```
+ */
 export function genCssVarsFromList(
   vars: string[],
   id: string,
@@ -33,6 +58,14 @@ export function genCssVarsFromList(
     .join(',\n  ')}\n}`
 }
 
+/**
+ * 生成 CSS 变量名称
+ * @param {string} id - 组件 ID
+ * @param {string} raw - 原始变量名
+ * @param {boolean} isProd - 是否为生产环境
+ * @param {boolean} [isSSR=false] - 是否为服务端渲染
+ * @returns {string} 生成的 CSS 变量名称
+ */
 function genVarName(
   id: string,
   raw: string,
@@ -49,6 +82,11 @@ function genVarName(
   }
 }
 
+/**
+ * 规范化表达式字符串
+ * @param {string} exp - 表达式字符串
+ * @returns {string} 规范化后的表达式
+ */
 function normalizeExpression(exp: string) {
   exp = exp.trim()
   if (
@@ -60,8 +98,17 @@ function normalizeExpression(exp: string) {
   return exp
 }
 
+/**
+ * 匹配 CSS 中 v-bind() 语法的正则表达式
+ * @constant {RegExp}
+ */
 const vBindRE = /v-bind\s*\(/g
 
+/**
+ * 解析 SFC 中的 CSS 变量
+ * @param {SFCDescriptor} sfc - 单文件组件描述符
+ * @returns {string[]} 解析出的 CSS 变量列表
+ */
 export function parseCssVars(sfc: SFCDescriptor): string[] {
   const vars: string[] = []
   sfc.styles.forEach(style => {
@@ -83,12 +130,22 @@ export function parseCssVars(sfc: SFCDescriptor): string[] {
   return vars
 }
 
+/**
+ * 词法分析器状态枚举
+ * @enum {number}
+ */
 enum LexerState {
   inParens,
   inSingleQuoteString,
   inDoubleQuoteString,
 }
 
+/**
+ * 解析 CSS 中的绑定表达式
+ * @param {string} content - CSS 内容
+ * @param {number} start - 开始位置
+ * @returns {number | null} 表达式结束位置，如果未找到则返回 null
+ */
 function lexBinding(content: string, start: number): number | null {
   let state: LexerState = LexerState.inParens
   let parenDepth = 0
@@ -127,11 +184,23 @@ function lexBinding(content: string, start: number): number | null {
 }
 
 // for compileStyle
+/**
+ * CSS 变量插件选项接口
+ * @interface CssVarsPluginOptions
+ * @property {string} id - 组件 ID
+ * @property {boolean} isProd - 是否为生产环境
+ */
 export interface CssVarsPluginOptions {
   id: string
   isProd: boolean
 }
 
+/**
+ * PostCSS 插件，用于处理 CSS 中的 v-bind() 语法
+ * @type {PluginCreator<CssVarsPluginOptions>}
+ * @param {CssVarsPluginOptions} opts - 插件选项
+ * @returns {Object} PostCSS 插件对象
+ */
 export const cssVarsPlugin: PluginCreator<CssVarsPluginOptions> = opts => {
   const { id, isProd } = opts!
   return {
@@ -162,6 +231,14 @@ export const cssVarsPlugin: PluginCreator<CssVarsPluginOptions> = opts => {
 }
 cssVarsPlugin.postcss = true
 
+/**
+ * 生成 CSS 变量代码
+ * @param {string[]} vars - CSS 变量列表
+ * @param {BindingMetadata} bindings - 绑定元数据
+ * @param {string} id - 组件 ID
+ * @param {boolean} isProd - 是否为生产环境
+ * @returns {string} 生成的 CSS 变量代码
+ */
 export function genCssVarsCode(
   vars: string[],
   bindings: BindingMetadata,
@@ -192,6 +269,15 @@ export function genCssVarsCode(
 
 // <script setup> already gets the calls injected as part of the transform
 // this is only for single normal <script>
+/**
+ * 为普通脚本生成 CSS 变量代码
+ * @param {string[]} cssVars - CSS 变量列表
+ * @param {BindingMetadata} bindings - 绑定元数据
+ * @param {string} id - 组件 ID
+ * @param {boolean} isProd - 是否为生产环境
+ * @param {string} defaultVar - 默认变量名
+ * @returns {string} 生成的 CSS 变量代码
+ */
 export function genNormalScriptCssVarsCode(
   cssVars: string[],
   bindings: BindingMetadata,

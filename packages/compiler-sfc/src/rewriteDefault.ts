@@ -1,9 +1,20 @@
+/**
+ * 默认导出重写工具
+ * 用于将ES模块的默认导出重写为变量声明，以便注入额外内容
+ */
 import { parse } from '@babel/parser'
 import MagicString from 'magic-string'
 import type { ParserPlugin } from '@babel/parser'
 import type { Identifier, Statement } from '@babel/types'
 import { resolveParserPlugins } from './script/context'
 
+/**
+ * 重写模块的默认导出
+ * @param {string} input - 输入代码字符串
+ * @param {string} as - 重写后的变量名称
+ * @param {ParserPlugin[]} [parserPlugins] - Babel解析器插件
+ * @returns {string} 重写后的代码
+ */
 export function rewriteDefault(
   input: string,
   as: string,
@@ -21,8 +32,11 @@ export function rewriteDefault(
 }
 
 /**
- * Utility for rewriting `export default` in a script block into a variable
- * declaration so that we can inject things into it
+ * 重写AST中的默认导出
+ * 用于将脚本块中的`export default`重写为变量声明，以便注入额外内容
+ * @param {Statement[]} ast - AST语句数组
+ * @param {MagicString} s - MagicString实例，用于操作字符串
+ * @param {string} as - 重写后的变量名称
  */
 export function rewriteDefaultAST(
   ast: Statement[],
@@ -89,6 +103,11 @@ export function rewriteDefaultAST(
   })
 }
 
+/**
+ * 检查AST是否包含默认导出
+ * @param {Statement[]} ast - AST语句数组
+ * @returns {boolean} 是否包含默认导出
+ */
 export function hasDefaultExport(ast: Statement[]): boolean {
   for (const stmt of ast) {
     if (stmt.type === 'ExportDefaultDeclaration') {
@@ -105,6 +124,13 @@ export function hasDefaultExport(ast: Statement[]): boolean {
   return false
 }
 
+/**
+ * 确定导出说明符的结束位置
+ * @param {MagicString} s - MagicString实例
+ * @param {number} end - 当前结束位置
+ * @param {number | null} nodeEnd - 节点结束位置
+ * @returns {number} 说明符的结束位置
+ */
 function specifierEnd(s: MagicString, end: number, nodeEnd: number | null) {
   // export { default   , foo } ...
   let hasCommas = false

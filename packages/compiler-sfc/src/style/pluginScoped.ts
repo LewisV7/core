@@ -1,3 +1,8 @@
+/**
+ * Vue SFC 作用域样式插件
+ * 用于为 Vue 单文件组件中的样式添加作用域标识
+ * 确保组件样式不会泄漏到其他组件
+ */
 import {
   type AtRule,
   type Container,
@@ -8,13 +13,38 @@ import {
 import selectorParser from 'postcss-selector-parser'
 import { warn } from '../warn'
 
+/**
+ * 匹配 animation-name 属性的正则表达式
+ * @constant {RegExp}
+ */
 const animationNameRE = /^(-\w+-)?animation-name$/
+/**
+ * 匹配 animation 简写属性的正则表达式
+ * @constant {RegExp}
+ */
 const animationRE = /^(-\w+-)?animation$/
+/**
+ * 匹配 @keyframes 规则的正则表达式
+ * @constant {RegExp}
+ */
 const keyframesRE = /^(?:-\w+-)?keyframes$/
 
+/**
+ * 创建作用域样式插件
+ * @param {string} [id=''] - 组件作用域 ID
+ * @returns {Object} PostCSS 插件对象
+ */
 const scopedPlugin: PluginCreator<string> = (id = '') => {
-  const keyframes = Object.create(null)
-  const shortId = id.replace(/^data-v-/, '')
+  /**
+ * 存储关键帧动画名称映射
+ * @type {Object<string, string>}
+ */
+const keyframes = Object.create(null)
+  /**
+ * 缩短的组件 ID（移除 data-v- 前缀）
+ * @type {string}
+ */
+const shortId = id.replace(/^data-v-/, '')
 
   return {
     postcssPlugin: 'vue-sfc-scoped',
@@ -63,8 +93,18 @@ const scopedPlugin: PluginCreator<string> = (id = '') => {
   }
 }
 
+/**
+ * 跟踪已处理的 CSS 规则
+ * 用于避免重复处理同一规则
+ * @type {WeakSet<Rule>}
+ */
 const processedRules = new WeakSet<Rule>()
 
+/**
+ * 处理 CSS 规则，添加作用域标识
+ * @param {string} id - 组件作用域 ID
+ * @param {Rule} rule - CSS 规则对象
+ */
 function processRule(id: string, rule: Rule) {
   if (
     processedRules.has(rule) ||
@@ -91,6 +131,15 @@ function processRule(id: string, rule: Rule) {
   }).processSync(rule.selector)
 }
 
+/**
+ * 重写 CSS 选择器，添加作用域标识
+ * @param {string} id - 组件作用域 ID
+ * @param {Rule} rule - CSS 规则对象
+ * @param {selectorParser.Selector} selector - 选择器对象
+ * @param {selectorParser.Root} selectorRoot - 选择器根节点
+ * @param {boolean} deep - 是否为深度选择器
+ * @param {boolean} [slotted=false] - 是否为插槽选择器
+ */
 function rewriteSelector(
   id: string,
   rule: Rule,
@@ -275,7 +324,12 @@ function rewriteSelector(
   }
 }
 
-function isSpaceCombinator(node: selectorParser.Node) {
+/**
+ * 判断是否为空格组合器
+ * @param {selectorParser.Node} node - 节点对象
+ * @returns {boolean} 如果是空格组合器则返回 true
+ */
+function isSpaceCombinator(node: selectorParser.Node): boolean {
   return node.type === 'combinator' && /^\s+$/.test(node.value)
 }
 

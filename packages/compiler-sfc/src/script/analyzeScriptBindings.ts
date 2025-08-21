@@ -1,3 +1,7 @@
+/**
+ * Vue单文件组件脚本绑定分析模块
+ * 该模块用于分析Vue SFC中普通`<script>`标签内的绑定关系
+ */
 import type {
   ArrayExpression,
   Node,
@@ -8,9 +12,10 @@ import { type BindingMetadata, BindingTypes } from '@vue/compiler-dom'
 import { resolveObjectKey } from './utils'
 
 /**
- * Analyze bindings in normal `<script>`
- * Note that `compileScriptSetup` already analyzes bindings as part of its
- * compilation process so this should only be used on single `<script>` SFCs.
+ * 分析普通`<script>`标签中的绑定
+ * 注意：`compileScriptSetup`已经在其编译过程中分析了绑定，因此此函数只应用于单`<script>`的SFC
+ * @param {Statement[]} ast - 抽象语法树
+ * @returns {BindingMetadata} 绑定元数据
  */
 export function analyzeScriptBindings(ast: Statement[]): BindingMetadata {
   for (const node of ast) {
@@ -24,6 +29,11 @@ export function analyzeScriptBindings(ast: Statement[]): BindingMetadata {
   return {}
 }
 
+/**
+ * 从选项对象中分析绑定
+ * @param {ObjectExpression} node - 对象表达式节点
+ * @returns {BindingMetadata} 绑定元数据
+ */
 function analyzeBindingsFromOptions(node: ObjectExpression): BindingMetadata {
   const bindings: BindingMetadata = {}
   // #3270, #3275
@@ -100,6 +110,11 @@ function analyzeBindingsFromOptions(node: ObjectExpression): BindingMetadata {
   return bindings
 }
 
+/**
+ * 获取对象表达式的键
+ * @param {ObjectExpression} node - 对象表达式节点
+ * @returns {string[]} 键名数组
+ */
 function getObjectExpressionKeys(node: ObjectExpression): string[] {
   const keys = []
   for (const prop of node.properties) {
@@ -110,6 +125,11 @@ function getObjectExpressionKeys(node: ObjectExpression): string[] {
   return keys
 }
 
+/**
+ * 获取数组表达式的键
+ * @param {ArrayExpression} node - 数组表达式节点
+ * @returns {string[]} 键名数组
+ */
 function getArrayExpressionKeys(node: ArrayExpression): string[] {
   const keys = []
   for (const element of node.elements) {
@@ -120,6 +140,11 @@ function getArrayExpressionKeys(node: ArrayExpression): string[] {
   return keys
 }
 
+/**
+ * 根据节点类型获取对象或数组表达式的键
+ * @param {Node} value - 节点
+ * @returns {string[]} 键名数组
+ */
 export function getObjectOrArrayExpressionKeys(value: Node): string[] {
   if (value.type === 'ArrayExpression') {
     return getArrayExpressionKeys(value)

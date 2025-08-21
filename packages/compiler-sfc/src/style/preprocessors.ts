@@ -1,8 +1,20 @@
+/**
+ * Vue单文件组件样式预处理器模块
+ * 该模块提供了处理不同类型样式预处理器的功能，包括scss、sass、less和stylus
+ */
 import merge from 'merge-source-map'
 import type { RawSourceMap } from '@vue/compiler-core'
 import type { SFCStyleCompileOptions } from '../compileStyle'
 import { isFunction } from '@vue/shared'
 
+/**
+ * 样式预处理器函数类型
+ * @param {string} source - 源代码
+ * @param {RawSourceMap | undefined} map - 源映射
+ * @param {Object} options - 预处理器选项
+ * @param {Function} customRequire - 自定义require函数
+ * @returns {StylePreprocessorResults} 预处理器结果
+ */
 export type StylePreprocessor = (
   source: string,
   map: RawSourceMap | undefined,
@@ -14,6 +26,13 @@ export type StylePreprocessor = (
   customRequire: SFCStyleCompileOptions['preprocessCustomRequire'],
 ) => StylePreprocessorResults
 
+/**
+ * 样式预处理器结果接口
+ * @property {string} code - 处理后的CSS代码
+ * @property {Object} [map] - 源映射
+ * @property {Error[]} errors - 错误数组
+ * @property {string[]} dependencies - 依赖文件列表
+ */
 export interface StylePreprocessorResults {
   code: string
   map?: object
@@ -21,6 +40,14 @@ export interface StylePreprocessorResults {
   dependencies: string[]
 }
 
+/**
+ * SCSS/SASS样式预处理器
+ * @param {string} source - SCSS/SASS源代码
+ * @param {RawSourceMap | undefined} map - 源映射
+ * @param {Object} options - 预处理器选项
+ * @param {Function} load - 加载函数，默认为require
+ * @returns {StylePreprocessorResults} 预处理器结果
+ */
 // .scss/.sass processor
 const scss: StylePreprocessor = (source, map, options, load = require) => {
   const nodeSass: typeof import('sass') = load('sass')
@@ -70,6 +97,14 @@ const scss: StylePreprocessor = (source, map, options, load = require) => {
   }
 }
 
+/**
+ * SASS样式预处理器（使用缩进语法）
+ * @param {string} source - SASS源代码
+ * @param {RawSourceMap | undefined} map - 源映射
+ * @param {Object} options - 预处理器选项
+ * @param {Function} load - 加载函数
+ * @returns {StylePreprocessorResults} 预处理器结果
+ */
 const sass: StylePreprocessor = (source, map, options, load) =>
   scss(
     source,
@@ -81,6 +116,14 @@ const sass: StylePreprocessor = (source, map, options, load) =>
     load,
   )
 
+/**
+ * LESS样式预处理器
+ * @param {string} source - LESS源代码
+ * @param {RawSourceMap | undefined} map - 源映射
+ * @param {Object} options - 预处理器选项
+ * @param {Function} load - 加载函数，默认为require
+ * @returns {StylePreprocessorResults} 预处理器结果
+ */
 // .less
 const less: StylePreprocessor = (source, map, options, load = require) => {
   const nodeLess = load('less')
@@ -114,6 +157,14 @@ const less: StylePreprocessor = (source, map, options, load = require) => {
   }
 }
 
+/**
+ * Stylus样式预处理器
+ * @param {string} source - Stylus源代码
+ * @param {RawSourceMap | undefined} map - 源映射
+ * @param {Object} options - 预处理器选项
+ * @param {Function} load - 加载函数，默认为require
+ * @returns {StylePreprocessorResults} 预处理器结果
+ */
 // .styl
 const styl: StylePreprocessor = (source, map, options, load = require) => {
   const nodeStylus = load('stylus')
@@ -138,6 +189,13 @@ const styl: StylePreprocessor = (source, map, options, load = require) => {
   }
 }
 
+/**
+ * 获取处理后的源代码
+ * @param {string} source - 原始源代码
+ * @param {string} filename - 文件名
+ * @param {string | Function} [additionalData] - 额外数据，可以是字符串或函数
+ * @returns {string} 处理后的源代码
+ */
 function getSource(
   source: string,
   filename: string,
@@ -150,8 +208,15 @@ function getSource(
   return additionalData + source
 }
 
+/**
+ * 支持的预处理器语言类型
+ */
 export type PreprocessLang = 'less' | 'sass' | 'scss' | 'styl' | 'stylus'
 
+/**
+ * 预处理器映射对象
+ * 将语言名称映射到对应的预处理器函数
+ */
 export const processors: Record<PreprocessLang, StylePreprocessor> = {
   less,
   sass,

@@ -1,3 +1,8 @@
+/**
+ * srcset 属性转换工具
+ * 用于处理 HTML 中 img 和 source 标签的 srcset 属性
+ * 将其中的相对资源 URL 转换为导入或绝对 URL
+ */
 import path from 'path'
 import {
   ConstantTypes,
@@ -21,14 +26,29 @@ import {
 
 const srcsetTags = ['img', 'source']
 
+/**
+ * 图像候选对象接口
+ * @interface ImageCandidate
+ * @property {string} url - 图像 URL
+ * @property {string} descriptor - 图像描述符，如像素密度或宽度
+ */
 interface ImageCandidate {
   url: string
   descriptor: string
 }
 
-// http://w3c.github.io/html/semantics-embedded-content.html#ref-for-image-candidate-string-5
-const escapedSpaceCharacters = /( |\\t|\\n|\\f|\\r)+/g
+/**
+ * 匹配转义空格字符的正则表达式
+ * 用于匹配 srcset 属性值中的各种空白字符
+ * 参考: http://w3c.github.io/html/semantics-embedded-content.html#ref-for-image-candidate-string-5
+ */
+const escapedSpaceCharacters = /( |\t|\n|\f|\r)+/g
 
+/**
+ * 创建带有自定义选项的 srcset 转换函数
+ * @param {Required<AssetURLOptions>} options - 资源 URL 转换选项
+ * @returns {NodeTransform} 返回一个节点转换函数
+ */
 export const createSrcsetTransformWithOptions = (
   options: Required<AssetURLOptions>,
 ): NodeTransform => {
@@ -36,9 +56,24 @@ export const createSrcsetTransformWithOptions = (
     (transformSrcset as Function)(node, context, options)
 }
 
+/**
+ * 转换 srcset 属性中的资源 URL
+ * @param {Node} node - AST 节点
+ * @param {TransformContext} context - 转换上下文
+ * @param {Required<AssetURLOptions>} [options=defaultAssetUrlOptions] - 资源 URL 转换选项
+ * @returns {void} 无返回值，直接修改节点
+ * @example
+ * ```html
+ * <img srcset="./image.jpg 1x, ./image@2x.jpg 2x">
+ * ```
+ * 转换后:
+ * ```jsx
+ * <img srcset={_imports_0 + ' 1x, ' + _imports_1 + ' 2x'}>
+ * ```
+ */
 export const transformSrcset: NodeTransform = (
-  node,
-  context,
+  node, 
+  context, 
   options: Required<AssetURLOptions> = defaultAssetUrlOptions,
 ) => {
   if (node.type === NodeTypes.ELEMENT) {
@@ -69,6 +104,11 @@ export const transformSrcset: NodeTransform = (
             }
           }
 
+          /**
+ * 判断是否需要处理 URL
+ * @param {string} url - 要判断的 URL
+ * @returns {boolean} 如果 URL 需要处理则返回 true
+ */
           const shouldProcessUrl = (url: string) => {
             return (
               url &&

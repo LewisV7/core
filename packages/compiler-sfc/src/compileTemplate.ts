@@ -1,3 +1,7 @@
+/*
+ * Vue单文件组件模板编译模块
+ * 负责处理SFC中的<template>部分，包括模板预处理、转换和代码生成
+ */
 import {
   type CodegenResult,
   type CompilerError,
@@ -29,11 +33,18 @@ import consolidate from '@vue/consolidate'
 import { warnOnce } from './warn'
 import { genCssVarsFromList } from './style/cssVars'
 
+/**
+ * 模板编译器接口
+ * 定义编译和解析模板的方法
+ */
 export interface TemplateCompiler {
   compile(source: string | RootNode, options: CompilerOptions): CodegenResult
   parse(template: string, options: ParserOptions): RootNode
 }
 
+/**
+ * 单文件组件模板编译结果
+ */
 export interface SFCTemplateCompileResults {
   code: string
   ast?: RootNode
@@ -44,6 +55,9 @@ export interface SFCTemplateCompileResults {
   map?: RawSourceMap
 }
 
+/**
+ * 单文件组件模板编译选项
+ */
 export interface SFCTemplateCompileOptions {
   source: string
   ast?: RootNode
@@ -72,6 +86,9 @@ export interface SFCTemplateCompileOptions {
   transformAssetUrls?: AssetURLOptions | AssetURLTagConfig | boolean
 }
 
+/**
+ * 预处理器接口
+ */
 interface PreProcessor {
   render(
     source: string,
@@ -80,6 +97,12 @@ interface PreProcessor {
   ): void
 }
 
+/**
+ * 模板预处理器执行函数
+ * @param options 编译选项
+ * @param preprocessor 预处理器实例
+ * @returns 预处理后的模板字符串
+ */
 function preprocess(
   { source, filename, preprocessOptions }: SFCTemplateCompileOptions,
   preprocessor: PreProcessor,
@@ -95,7 +118,8 @@ function preprocess(
     source,
     { filename, ...preprocessOptions },
     (_err, _res) => {
-      if (_err) err = _err
+      // 浏览器环境下需要提供预处理器加载函数
+  if (_err) err = _err
       res = _res
     },
   )
@@ -104,9 +128,15 @@ function preprocess(
   return res
 }
 
+/**
+ * 编译单文件组件模板
+ * @param options 编译选项
+ * @returns 编译结果
+ */
 export function compileTemplate(
   options: SFCTemplateCompileOptions,
 ): SFCTemplateCompileResults {
+  // 提取预处理器相关选项
   const { preprocessLang, preprocessCustomRequire } = options
 
   if (
@@ -121,6 +151,7 @@ export function compileTemplate(
     )
   }
 
+  // 获取预处理器实例
   const preprocessor = preprocessLang
     ? preprocessCustomRequire
       ? preprocessCustomRequire(preprocessLang)
@@ -128,6 +159,7 @@ export function compileTemplate(
         ? undefined
         : consolidate[preprocessLang as keyof typeof consolidate]
     : false
+  // 如果存在预处理器，则先进行预处理
   if (preprocessor) {
     try {
       return doCompileTemplate({
@@ -143,6 +175,7 @@ export function compileTemplate(
         errors: [e],
       }
     }
+  // 预处理器语言指定但未找到对应的预处理器
   } else if (preprocessLang) {
     return {
       code: `export default function render() {}`,
@@ -154,11 +187,17 @@ export function compileTemplate(
         `Component ${options.filename} uses lang ${preprocessLang} for template, however it is not installed.`,
       ],
     }
+  // 无预处理器，直接编译
   } else {
     return doCompileTemplate(options)
   }
 }
 
+/**
+ * 执行模板编译的内部函数
+ * @param options 编译选项
+ * @returns 编译结果
+ */
 function doCompileTemplate({
   filename,
   id,
@@ -174,59 +213,74 @@ function doCompileTemplate({
   compilerOptions = {},
   transformAssetUrls,
 }: SFCTemplateCompileOptions): SFCTemplateCompileResults {
+  // 初始化错误和警告数组
   const errors: CompilerError[] = []
   const warnings: CompilerError[] = []
 
+  // 初始化节点转换数组
   let nodeTransforms: NodeTransform[] = []
+  // 配置资源URL转换（带选项）
   if (isObject(transformAssetUrls)) {
     const assetOptions = normalizeOptions(transformAssetUrls)
     nodeTransforms = [
       createAssetUrlTransformWithOptions(assetOptions),
       createSrcsetTransformWithOptions(assetOptions),
     ]
+  // 配置资源URL转换（默认选项）
   } else if (transformAssetUrls !== false) {
     nodeTransforms = [transformAssetUrl, transformSrcset]
   }
 
+  // SSR模式下如果没有提供CSS变量则发出警告
   if (ssr && !ssrCssVars) {
     warnOnce(
       `compileTemplate is called with \`ssr: true\` but no ` +
         `corresponding \`cssVars\` option.`,
     )
   }
+  // 如果没有提供ID则发出警告
   if (!id) {
     warnOnce(`compileTemplate now requires the \`id\` option.`)
     id = ''
   }
 
+  // 提取短ID（移除data-v-前缀）
   const shortId = id.replace(/^data-v-/, '')
+  // 生成完整ID
   const longId = `data-v-${shortId}`
 
+  // 根据SSR模式选择默认编译器
   const defaultCompiler = ssr ? (CompilerSSR as TemplateCompiler) : CompilerDOM
+  // 使用用户提供的编译器或默认编译器
   compiler = compiler || defaultCompiler
 
+  // 如果使用自定义编译器，则不能复用已有AST
   if (compiler !== defaultCompiler) {
     // user using custom compiler, this means we cannot reuse the AST from
     // the descriptor as they might be different.
     inAST = undefined
   }
 
+  // 如果输入AST已被转换，则需要重新解析
   if (inAST?.transformed) {
     // If input AST has already been transformed, then it cannot be reused.
     // We need to parse a fresh one. Can't just use `source` here since we need
     // the AST location info to be relative to the entire SFC.
+    // 解析新的AST
     const newAST = (ssr ? CompilerDOM : compiler).parse(inAST.source, {
       prefixIdentifiers: true,
       ...compilerOptions,
       parseMode: 'sfc',
       onError: e => errors.push(e),
     })
+    // 查找template元素
     const template = newAST.children.find(
       node => node.type === NodeTypes.ELEMENT && node.tag === 'template',
     ) as ElementNode
     inAST = createRoot(template.children, inAST.source)
   }
 
+  // 编译模板
   let { code, ast, preamble, map } = compiler.compile(inAST || source, {
     mode: 'module',
     prefixIdentifiers: true,

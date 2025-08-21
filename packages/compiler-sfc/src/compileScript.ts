@@ -1,3 +1,8 @@
+/**
+ * Vue单文件组件(SFC)脚本编译模块
+ * 负责处理Vue组件中的<script>和<script setup>部分
+ * 包括解析、转换和生成最终可执行的JavaScript代码
+ */
 import {
   BindingTypes,
   UNREF,
@@ -61,6 +66,9 @@ import { analyzeScriptBindings } from './script/analyzeScriptBindings'
 import { isImportUsed } from './script/importUsageCheck'
 import { processAwait } from './script/topLevelAwait'
 
+/**
+ * 单文件组件脚本编译选项
+ */
 export interface SFCScriptCompileOptions {
   /**
    * Scope ID for prefixing injected CSS variables.
@@ -132,6 +140,10 @@ export interface SFCScriptCompileOptions {
   customElement?: boolean | ((filename: string) => boolean)
 }
 
+/**
+ * 导入绑定信息
+ * 描述从其他模块导入的符号及其绑定关系
+ */
 export interface ImportBinding {
   isType: boolean
   imported: string
@@ -141,6 +153,10 @@ export interface ImportBinding {
   isUsedInTemplate: boolean
 }
 
+/**
+ * Vue SFC支持的宏函数列表
+ * 这些宏函数在<script setup>中具有特殊处理逻辑
+ */
 const MACROS = [
   DEFINE_PROPS,
   DEFINE_EMITS,
@@ -152,14 +168,19 @@ const MACROS = [
 ]
 
 /**
- * Compile `<script setup>`
- * It requires the whole SFC descriptor because we need to handle and merge
- * normal `<script>` + `<script setup>` if both are present.
+ * 编译Vue组件中的脚本部分
+ * 支持普通<script>和<script setup>两种模式
+ * 如果同时存在两种脚本，会进行合并处理
+ * 
+ * @param {SFCDescriptor} sfc - 单文件组件描述符
+ * @param {SFCScriptCompileOptions} options - 编译选项
+ * @returns {SFCScriptBlock} 编译后的脚本块
  */
 export function compileScript(
   sfc: SFCDescriptor,
   options: SFCScriptCompileOptions,
 ): SFCScriptBlock {
+  // 检查是否提供了id选项，如果没有则发出警告
   if (!options.id) {
     warnOnce(
       `compileScript now requires passing the \`id\` option.\n` +
@@ -168,21 +189,31 @@ export function compileScript(
     )
   }
 
+  // 创建脚本编译上下文，用于存储编译过程中的状态和工具
   const ctx = new ScriptCompileContext(sfc, options)
+  // 从SFC描述符中提取必要的信息
   const { script, scriptSetup, source, filename } = sfc
+  // 确定是否需要提升静态常量
   const hoistStatic = options.hoistStatic !== false && !script
+  // 提取作用域ID（移除前缀data-v-）
   const scopeId = options.id ? options.id.replace(/^data-v-/, '') : ''
+  // 获取普通<script>的语言类型
   const scriptLang = script && script.lang
+  // 获取<script setup>的语言类型
   const scriptSetupLang = scriptSetup && scriptSetup.lang
 
+  // 处理没有<script setup>的情况
   if (!scriptSetup) {
-    if (!script) {
+    // 如果既没有<script setup>也没有<script>，则抛出错误
+      if (!script) {
       throw new Error(`[@vue/compiler-sfc] SFC contains no <script> tags.`)
     }
-    // normal <script> only
+    // 只有普通<script>的情况
+      // normal <script> only
     return processNormalScript(ctx, scopeId)
   }
 
+  // 检查<script>和<script setup>的语言类型是否一致
   if (script && scriptLang !== scriptSetupLang) {
     throw new Error(
       `[@vue/compiler-sfc] <script> and <script setup> must have the same ` +
@@ -190,11 +221,13 @@ export function compileScript(
     )
   }
 
+  // 处理非JS/TS脚本块的情况
   if (scriptSetupLang && !ctx.isJS && !ctx.isTS) {
     // do not process non js/ts script blocks
     return scriptSetup
   }
 
+  // 初始化需要返回的元数据
   // metadata that needs to be returned
   // const ctx.bindingMetadata: BindingMetadata = {}
   const scriptBindings: Record<string, BindingTypes> = Object.create(null)
@@ -210,6 +243,10 @@ export function compileScript(
   const scriptStartOffset = script && script.loc.start.offset
   const scriptEndOffset = script && script.loc.end.offset
 
+  /**
+   * 将节点提升到模块顶部
+   * @param {Statement} node - 要提升的AST语句节点
+   */
   function hoistNode(node: Statement) {
     const start = node.start! + startOffset
     let end = node.end! + startOffset
@@ -229,6 +266,15 @@ export function compileScript(
     ctx.s.move(start, end, 0)
   }
 
+  /**
+   * 注册用户导入的符号
+   * @param {string} source - 导入源路径
+   * @param {string} local - 本地变量名
+   * @param {string} imported - 导入的符号名
+   * @param {boolean} isType - 是否为类型导入
+   * @param {boolean} isFromSetup - 是否来自<script setup>
+   * @param {boolean} needTemplateUsageCheck - 是否需要检查模板使用情况
+   */
   function registerUserImport(
     source: string,
     local: string,
@@ -260,6 +306,12 @@ export function compileScript(
     }
   }
 
+  /**
+   * 检查无效的作用域引用
+   * 确保宏函数中不会引用局部声明的变量
+   * @param {Node|undefined} node - 要检查的AST节点
+   * @param {string} method - 宏函数名称
+   */
   function checkInvalidScopeReference(node: Node | undefined, method: string) {
     if (!node) return
     walkIdentifiers(node, id => {
@@ -280,6 +332,7 @@ export function compileScript(
   const scriptAst = ctx.scriptAst
   const scriptSetupAst = ctx.scriptSetupAst!
 
+  // 1.1 遍历<script>中的导入声明
   // 1.1 walk import declarations of <script>
   if (scriptAst) {
     for (const node of scriptAst.body) {
@@ -302,6 +355,7 @@ export function compileScript(
     }
   }
 
+  // 1.2 遍历<script setup>中的导入声明
   // 1.2 walk import declarations of <script setup>
   for (const node of scriptSetupAst.body) {
     if (node.type === 'ImportDeclaration') {
@@ -373,6 +427,7 @@ export function compileScript(
     }
   }
 
+  // 1.3 解析用户可能导入的`ref`和`reactive`等API的别名
   // 1.3 resolve possible user import alias of `ref` and `reactive`
   const vueImportAliases: Record<string, string> = {}
   for (const key in ctx.userImports) {
@@ -380,14 +435,17 @@ export function compileScript(
     if (source === 'vue') vueImportAliases[imported] = local
   }
 
+  // 2.1 处理普通<script>的主体内容
   // 2.1 process normal <script> body
   if (script && scriptAst) {
     for (const node of scriptAst.body) {
       if (node.type === 'ExportDefaultDeclaration') {
-        // export default
+        // 处理默认导出
+          // export default
         defaultExport = node
 
-        // check if user has manually specified `name` or 'render` option in
+        // 检查用户是否手动指定了`name`或'render`选项
+          // check if user has manually specified `name` or 'render` option in
         // export default
         // if has name, skip name inference
         // if has render and no template, generate return object instead of
@@ -433,6 +491,7 @@ export function compileScript(
         ) as ExportSpecifier
         if (defaultSpecifier) {
           defaultExport = node
+          // 1. 移除导出指定符
           // 1. remove specifier
           if (node.specifiers.length > 1) {
             ctx.s.remove(
@@ -446,6 +505,7 @@ export function compileScript(
             )
           }
           if (node.source) {
+            // 处理从其他模块导出默认值的情况
             // export { x as default } from './x'
             // rewrite to `import { x as __default__ } from './x'` and
             // add to top
@@ -487,6 +547,7 @@ export function compileScript(
       }
     }
 
+    // 处理<script>在<script setup>之后的情况
     // <script> after <script setup>
     // we need to move the block up so that `const __default__` is
     // declared before being used in the actual component definition
@@ -499,10 +560,12 @@ export function compileScript(
     }
   }
 
+  // 2.2 处理<script setup>的主体内容
   // 2.2 process <script setup> body
   for (const node of scriptSetupAst.body) {
     if (node.type === 'ExpressionStatement') {
       const expr = unwrapTSNode(node.expression)
+      // 处理`defineProps`和`defineEmit(s)`调用
       // process `defineProps` and `defineEmit(s)` calls
       if (
         processDefineProps(ctx, expr) ||
@@ -684,11 +747,13 @@ export function compileScript(
     }
   }
 
+  // 3. 处理props解构转换
   // 3 props destructure transform
   if (ctx.propsDestructureDecl) {
     transformDestructuredProps(ctx, vueImportAliases)
   }
 
+  // 4. 检查宏参数是否引用了setup作用域变量
   // 4. check macro args to make sure it doesn't reference setup scope
   // variables
   checkInvalidScopeReference(ctx.propsRuntimeDecl, DEFINE_PROPS)
@@ -702,6 +767,7 @@ export function compileScript(
     }
   }
 
+  // 5. 移除非脚本内容
   // 5. remove non-script content
   if (script) {
     if (startOffset < scriptStartOffset!) {
@@ -721,8 +787,10 @@ export function compileScript(
     ctx.s.remove(endOffset, source.length)
   }
 
+  // 6. 分析绑定元数据
   // 6. analyze binding metadata
-  // `defineProps` & `defineModel` also register props bindings
+  // `defineProps`和`defineModel`也会注册props绑定
+    // `defineProps` & `defineModel` also register props bindings
   if (scriptAst) {
     Object.assign(ctx.bindingMetadata, analyzeScriptBindings(scriptAst.body))
   }
@@ -744,6 +812,7 @@ export function compileScript(
     ctx.bindingMetadata[key] = setupBindings[key]
   }
 
+  // 7. 注入CSS变量使用调用
   // 7. inject `useCssVars` calls
   if (
     sfc.cssVars.length &&
@@ -763,6 +832,7 @@ export function compileScript(
     )
   }
 
+  // 8. 最终确定setup()参数签名
   // 8. finalize setup() argument signature
   let args = `__props`
   if (ctx.propsTypeDecl) {
@@ -771,6 +841,7 @@ export function compileScript(
     // inferred type from generated runtime declarations
     args += `: any`
   }
+  // 注入用户对props的赋值
   // inject user assignment of props
   // we use a default __props so that template expressions referencing props
   // can use it directly
@@ -797,6 +868,7 @@ export function compileScript(
     }
   }
 
+  // 注入用于保存异步上下文的临时变量
   // inject temp variables for async context preservation
   if (hasAwait) {
     const any = ctx.isTS ? `: any` : ``
@@ -815,12 +887,14 @@ export function compileScript(
   }
 
   let templateMap
+  // 9. 生成返回语句
   // 9. generate return statement
   let returned
   if (
     !options.inlineTemplate ||
     (!sfc.template && ctx.hasDefaultExportRender)
   ) {
+    // 非内联模式，或在普通<script>中有手动渲染
     // non-inline mode, or has manual render in normal <script>
     // return bindings from script and script setup
     const allBindings: Record<string, any> = {
@@ -862,7 +936,8 @@ export function compileScript(
       if (options.templateOptions && options.templateOptions.ssr) {
         hasInlinedSsrRenderFn = true
       }
-      // inline render function mode - we are going to compile the template and
+      // 内联渲染函数模式 - 我们将在此处编译并内联模板
+    // inline render function mode - we are going to compile the template and
       // inline it right here
       const { code, ast, preamble, tips, errors, map } = compileTemplate({
         filename,
@@ -933,6 +1008,7 @@ export function compileScript(
     ctx.s.appendRight(endOffset, `\nreturn ${returned}\n}\n\n`)
   }
 
+  // 10. 最终处理默认导出
   // 10. finalize default export
   const genDefaultAs = options.genDefaultAs
     ? `const ${options.genDefaultAs} =`
@@ -1007,6 +1083,7 @@ export function compileScript(
     }
   }
 
+  // 11. 最终处理Vue辅助工具导入
   // 11. finalize Vue helper imports
   if (ctx.helperImports.size > 0) {
     const runtimeModuleName =
@@ -1049,6 +1126,12 @@ export function compileScript(
   }
 }
 
+/**
+ * 注册绑定变量
+ * @param bindings 绑定记录对象
+ * @param node 标识符节点
+ * @param type 绑定类型
+ */
 function registerBinding(
   bindings: Record<string, BindingTypes>,
   node: Identifier,
@@ -1057,6 +1140,16 @@ function registerBinding(
   bindings[node.name] = type
 }
 
+/**
+ * 遍历声明节点并处理绑定
+ * @param from 来源('script'或'scriptSetup')
+ * @param node 声明节点
+ * @param bindings 绑定记录对象
+ * @param userImportAliases 用户导入别名
+ * @param hoistStatic 是否提升静态变量
+ * @param isPropsDestructureEnabled 是否启用props解构
+ * @returns 是否所有声明都是字面量常量
+ */
 function walkDeclaration(
   from: 'script' | 'scriptSetup',
   node: Declaration,
@@ -1162,6 +1255,13 @@ function walkDeclaration(
   return isAllLiteral
 }
 
+/**
+ * 遍历对象模式并处理绑定
+ * @param node 对象模式节点
+ * @param bindings 绑定记录对象
+ * @param isConst 是否为常量
+ * @param isDefineCall 是否为defineProps/defineEmits调用
+ */
 function walkObjectPattern(
   node: ObjectPattern,
   bindings: Record<string, BindingTypes>,
@@ -1190,6 +1290,13 @@ function walkObjectPattern(
   }
 }
 
+/**
+ * 遍历数组模式并处理绑定
+ * @param node 数组模式节点
+ * @param bindings 绑定记录对象
+ * @param isConst 是否为常量
+ * @param isDefineCall 是否为defineProps/defineEmits调用
+ */
 function walkArrayPattern(
   node: ArrayPattern,
   bindings: Record<string, BindingTypes>,
@@ -1201,6 +1308,13 @@ function walkArrayPattern(
   }
 }
 
+/**
+ * 遍历模式节点并处理绑定
+ * @param node 模式节点
+ * @param bindings 绑定记录对象
+ * @param isConst 是否为常量
+ * @param isDefineCall 是否为defineProps/defineEmits调用
+ */
 function walkPattern(
   node: Node,
   bindings: Record<string, BindingTypes>,
@@ -1236,6 +1350,12 @@ function walkPattern(
   }
 }
 
+/**
+ * 检查节点是否永远不会是ref
+ * @param node 节点
+ * @param userReactiveImport 用户导入的reactive函数别名
+ * @returns 是否永远不会是ref
+ */
 function canNeverBeRef(node: Node, userReactiveImport?: string): boolean {
   if (isCallOf(node, userReactiveImport)) {
     return true
@@ -1264,6 +1384,11 @@ function canNeverBeRef(node: Node, userReactiveImport?: string): boolean {
   }
 }
 
+/**
+ * 检查节点是否为静态节点
+ * @param node 节点
+ * @returns 是否为静态节点
+ */
 function isStaticNode(node: Node): boolean {
   node = unwrapTSNode(node)
 
@@ -1301,6 +1426,13 @@ function isStaticNode(node: Node): boolean {
   return false
 }
 
+/**
+ * 合并源码映射
+ * @param scriptMap 脚本源码映射
+ * @param templateMap 模板源码映射
+ * @param templateLineOffset 模板行偏移量
+ * @returns 合并后的源码映射
+ */
 export function mergeSourceMaps(
   scriptMap: RawSourceMap,
   templateMap: RawSourceMap,
